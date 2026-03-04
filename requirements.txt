@@ -1,0 +1,4 @@
+requests>=2.25.1
+gql[all]
+pytest>=8.0.0
+python-dotenv

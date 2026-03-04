@@ -1,0 +1,72 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+.venv/
+pip-wheel-metadata/
+build/
+dist/
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+.cache/
+.coverage
+coverage.xml
+*.cover
+*.py,cover
+
+# VSCode and IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.*
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+docker-compose.*.yml
+Dockerfile
+docker-compose.yml
+docker-compose.local.yml
+.devcontainer/
+
+# Logs
+*.log
+logs/
+
+# Byte-compiled / optimized / DLL files
+*.pyc
+*.pyo
+*.pyd
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Distribution / packaging
+egg-info/
+.eggs/
+
+# Unit test / coverage
+.tox/
+pytestdebug.log
+
+# Sphinx documentation
+docs/_build/
+
+# Virtualenv
+venv/
+ENV/
