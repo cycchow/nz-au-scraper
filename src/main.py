@@ -149,12 +149,21 @@ def save_results(results: list[dict[str, Any]]):
             )
 
 
-def parse_month_arg(value: str) -> date:
+def parse_date_or_month_arg(value: str) -> date:
+    text = (value or "").strip()
+    if not text:
+        raise argparse.ArgumentTypeError("Expected YYYY-MM or YYYY-MM-DD format")
+
+    if len(text) == 7:
+        try:
+            return date.fromisoformat(f"{text}-01")
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError("Expected YYYY-MM or YYYY-MM-DD format") from exc
+
     try:
-        parsed = date.fromisoformat(f"{value}-01")
-        return parsed.replace(day=1)
+        return date.fromisoformat(text)
     except ValueError as exc:
-        raise argparse.ArgumentTypeError("Expected YYYY-MM format") from exc
+        raise argparse.ArgumentTypeError("Expected YYYY-MM or YYYY-MM-DD format") from exc
 
 
 def month_window(from_month: date, to_month: date) -> tuple[date, date]:
@@ -170,8 +179,13 @@ def month_window(from_month: date, to_month: date) -> tuple[date, date]:
     return start_month, end_date
 
 
+def date_window(from_date: date, to_date: date) -> tuple[date, date]:
+    return min(from_date, to_date), max(from_date, to_date)
+
+
 def run_fixture_ingestion(provider: ScraperProvider, from_month: date, to_month: date, country: str):
-    total_fixtures = provider.fetch_fixtures_for_ingestion(from_month, to_month)
+    # Fixture fetchers operate by month buckets, so truncate any explicit day input.
+    total_fixtures = provider.fetch_fixtures_for_ingestion(from_month.replace(day=1), to_month.replace(day=1))
     logger.info("Total fixtures transformed=%s source=%s", len(total_fixtures), provider.name)
     save_fixtures(total_fixtures, country=country, provider=provider)
 
@@ -249,8 +263,8 @@ def main(argv=None):
     provider = get_provider(args_preview.source)
 
     today_month = date.today().replace(day=1)
-    parser.add_argument("--from", dest="from_month", type=parse_month_arg, default=today_month)
-    parser.add_argument("--to", dest="to_month", type=parse_month_arg, default=date(2023, 1, 1))
+    parser.add_argument("--from", dest="from_month", type=parse_date_or_month_arg, default=today_month)
+    parser.add_argument("--to", dest="to_month", type=parse_date_or_month_arg, default=date(2023, 1, 1))
     parser.add_argument("--country", default=provider.default_country)
     parser.add_argument("--mode", choices=["fixtures", "races-results"], default="fixtures")
     args = parser.parse_args(argv)
@@ -261,7 +275,7 @@ def main(argv=None):
         run_fixture_ingestion(provider, args.from_month, args.to_month, args.country)
         return
 
-    from_date, to_date = month_window(args.from_month, args.to_month)
+    from_date, to_date = date_window(args.from_month, args.to_month)
     logger.info(
         "Races-results mode source=%s date window from=%s to=%s",
         provider.name,

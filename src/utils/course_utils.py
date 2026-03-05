@@ -109,4 +109,4 @@ def get_direction(course: str, distance: str, surface: str = None) -> str:
         return best_direction
     if course.lower() in direction_mapping:
         return direction_mapping[course.lower()]
-    return "Right"
+    return "Left"

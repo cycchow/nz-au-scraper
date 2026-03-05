@@ -2,25 +2,45 @@ import json
 import logging
 import re
 import xml.etree.ElementTree as ET
-from datetime import date, datetime
+from html import unescape
+from datetime import date, datetime, timedelta
+from datetime import timezone
+from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
 from typing import Any, Callable
 
 import requests
+from bs4 import BeautifulSoup, Tag
 from utils.course_utils import get_direction, normalize_course
 from utils.jockey_name_mapping import get_jockey_full_name
 
 logger = logging.getLogger(__name__)
 
 MEETING_RESULTS_ENDPOINT = "https://loveracing.nz/ServerScript/RaceInfo.aspx/GetMeetingResults"
+CALENDAR_EVENTS_ENDPOINT = "https://loveracing.nz/ServerScript/RaceInfo.aspx/GetCalendarEvents"
 RESULT_DOWNLOAD_ENDPOINT = "https://loveracing.nz/SystemTemplates/RaceInfo/ResultDownloads.ashx"
 SECTIONAL_ENDPOINT = "http://localhost:8080/loveracing"
+MEETING_OVERVIEW_ENDPOINT = "https://loveracing.nz/RaceInfo/{day_id}/Meeting-Overview.aspx"
 NZ_TZ = ZoneInfo("Pacific/Auckland")
 RACE_ID_BASE_NZ = 600000000
+REQUEST_HEADERS = {
+    "Content-Type": "application/json; charset=UTF-8",
+    "Accept": "application/json, text/javascript, */*; q=0.01",
+}
 
 
 def format_month_payload(month_start: date) -> dict[str, str]:
     return {"start": f"1 {month_start.strftime('%b %Y')}"}
+
+
+def format_calendar_payload(month_start: date, today: date | None = None) -> dict[str, str]:
+    today = today or date.today()
+    start = month_start.replace(day=1)
+    end = today + timedelta(days=42)
+    return {
+        "start": start.strftime("%d-%b-%Y"),
+        "end": end.strftime("%d-%b-%Y"),
+    }
 
 
 def parse_day_with_context(day_text: str, month_context: date) -> date:
@@ -35,6 +55,26 @@ def parse_day_with_context(day_text: str, month_context: date) -> date:
     month_abbr = match.group(2)
     parsed = datetime.strptime(f"{day_num} {month_abbr} {month_context.year}", "%d %b %Y")
     return parsed.date()
+
+
+def parse_race_date_fallback(race_date_raw: Any) -> date:
+    if race_date_raw in (None, ""):
+        raise ValueError("missing RaceDate")
+
+    text = str(race_date_raw).strip()
+    ms_match = re.match(r"^/Date\(([-]?\d+)(?:[+-]\d+)?\)/$", text)
+    if ms_match:
+        millis = int(ms_match.group(1))
+        return datetime.fromtimestamp(millis / 1000, tz=timezone.utc).astimezone(NZ_TZ).date()
+
+    try:
+        normalized = text.replace("Z", "+00:00")
+        parsed = datetime.fromisoformat(normalized)
+        if parsed.tzinfo is None:
+            return parsed.date()
+        return parsed.astimezone(NZ_TZ).date()
+    except ValueError as exc:
+        raise ValueError(f"unsupported RaceDate format: {race_date_raw}") from exc
 
 
 def decode_meetings_payload(response_json: dict[str, Any]) -> list[dict[str, Any]]:
@@ -57,14 +97,78 @@ def decode_meetings_payload(response_json: dict[str, Any]) -> list[dict[str, Any
 
 def fetch_month_meetings(month_start: date) -> list[dict[str, Any]]:
     payload = format_month_payload(month_start)
-    headers = {
-        "Content-Type": "application/json; charset=UTF-8",
-        "Accept": "application/json, text/javascript, */*; q=0.01",
-    }
-    resp = requests.post(MEETING_RESULTS_ENDPOINT, json=payload, headers=headers, timeout=30)
+    resp = requests.post(MEETING_RESULTS_ENDPOINT, json=payload, headers=REQUEST_HEADERS, timeout=30)
     resp.raise_for_status()
     response_json = resp.json()
     return decode_meetings_payload(response_json)
+
+
+def fetch_calendar_events(month_start: date, today: date | None = None) -> list[dict[str, Any]]:
+    payload = format_calendar_payload(month_start, today=today)
+    resp = requests.post(CALENDAR_EVENTS_ENDPOINT, json=payload, headers=REQUEST_HEADERS, timeout=30)
+    resp.raise_for_status()
+    response_json = resp.json()
+    return decode_meetings_payload(response_json)
+
+
+def merge_month_meetings(
+    results_meetings: list[dict[str, Any]],
+    calendar_meetings: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    day_ids_seen: set[int] = set()
+
+    for meeting in results_meetings:
+        day_id = _to_int(meeting.get("DayID"))
+        if day_id is not None:
+            day_ids_seen.add(day_id)
+        merged.append(meeting)
+
+    for meeting in calendar_meetings:
+        day_id = _to_int(meeting.get("DayID"))
+        if day_id is None:
+            logger.warning("Skipping calendar meeting with invalid DayID=%r", meeting.get("DayID"))
+            continue
+        if day_id in day_ids_seen:
+            continue
+        day_ids_seen.add(day_id)
+        merged.append(meeting)
+
+    return merged
+
+
+def fetch_month_meetings_with_calendar_merge(month_start: date, today: date | None = None) -> list[dict[str, Any]]:
+    today = today or date.today()
+    if month_start.replace(day=1) != today.replace(day=1):
+        return fetch_month_meetings(month_start)
+
+    calendar_meetings: list[dict[str, Any]] = []
+    try:
+        calendar_meetings = fetch_calendar_events(month_start, today=today)
+        logger.info(
+            "Fetched %s calendar meetings for current month %s",
+            len(calendar_meetings),
+            month_start.strftime("%Y-%m"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "GetCalendarEvents failed for current month %s: %s",
+            month_start.strftime("%Y-%m"),
+            exc,
+        )
+
+    results_meetings = fetch_month_meetings(month_start)
+    if not calendar_meetings:
+        return results_meetings
+
+    merged = merge_month_meetings(results_meetings, calendar_meetings)
+    logger.info(
+        "Merged current month meetings results=%s calendar=%s merged=%s",
+        len(results_meetings),
+        len(calendar_meetings),
+        len(merged),
+    )
+    return merged
 
 
 def generate_month_starts(from_month: date, to_month: date) -> list[date]:
@@ -111,9 +215,19 @@ def to_fixture_records(meetings: list[dict[str, Any]], month_context: date) -> l
         day_id = meeting.get("DayID")
         try:
             race_date = parse_day_with_context(day_text, month_context)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Skipping DayID=%s, invalid Day=%r: %s", day_id, day_text, exc)
-            continue
+        except Exception:
+            race_date_raw = meeting.get("RaceDate")
+            try:
+                race_date = parse_race_date_fallback(race_date_raw)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Skipping DayID=%s, invalid Day=%r and RaceDate=%r: %s",
+                    day_id,
+                    day_text,
+                    race_date_raw,
+                    exc,
+                )
+                continue
 
         course = normalize_course(meeting.get("Racecourse") or meeting.get("Club"))
         fixtures.append(
@@ -138,6 +252,16 @@ def build_result_download_url(day_id: int, filename: str) -> str:
 def fetch_meeting_xml(day_id: int, filename: str) -> str:
     url = build_result_download_url(day_id, filename)
     response = requests.get(url, timeout=30)
+    response.raise_for_status()
+    return response.text
+
+
+def build_meeting_overview_url(day_id: int) -> str:
+    return MEETING_OVERVIEW_ENDPOINT.format(day_id=int(day_id))
+
+
+def fetch_meeting_overview_html(day_id: int) -> str:
+    response = requests.get(build_meeting_overview_url(day_id), timeout=30)
     response.raise_for_status()
     return response.text
 
@@ -201,9 +325,117 @@ def _combine_race_times(meeting_date: str, race_time: str) -> tuple[str, str]:
     return start_time, start_time_zoned
 
 
+def _coerce_fixture_date(value: Any) -> date | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, date):
+        return value
+    text = str(value).strip()
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        pass
+    try:
+        normalized = text.replace("Z", "+00:00")
+        parsed = datetime.fromisoformat(normalized)
+        if parsed.tzinfo is not None:
+            return parsed.astimezone(NZ_TZ).date()
+        return parsed.date()
+    except ValueError:
+        return None
+
+
+def _combine_ampm_race_times(meeting_date: date, race_time_text: str) -> tuple[str, str] | None:
+    if not race_time_text:
+        return None
+    cleaned = re.sub(r"\s+", " ", race_time_text).strip().lower()
+    try:
+        parsed = datetime.strptime(cleaned, "%I:%M %p")
+    except ValueError:
+        return None
+    local_dt = datetime(
+        year=meeting_date.year,
+        month=meeting_date.month,
+        day=meeting_date.day,
+        hour=parsed.hour,
+        minute=parsed.minute,
+        second=0,
+        tzinfo=NZ_TZ,
+    )
+    start_time = local_dt.replace(tzinfo=None).isoformat(timespec="seconds")
+    start_time_zoned = local_dt.isoformat(timespec="seconds")
+    return start_time, start_time_zoned
+
+
 def _normalize_runner_name(name: str | None) -> str:
     base, _ = _extract_horse_name_and_origin(name)
     return base
+
+
+def _extract_query_int(url: str | None, key: str) -> int | None:
+    if not url:
+        return None
+    parsed = urlparse(url)
+    values = parse_qs(parsed.query).get(key)
+    if not values:
+        return None
+    return _to_int(values[0])
+
+
+def _parse_race_class_distance_prize(raw_text: str) -> tuple[str | None, float | None, int | None]:
+    cleaned = re.sub(r"\s+", " ", (raw_text or "")).strip()
+    match = re.search(r"^(.*?)\s*(\d{3,4})m\s*-\s*\$([\d,]+)", cleaned)
+    if not match:
+        return (cleaned or None), None, None
+    race_class = match.group(1).strip() or None
+    distance = _to_float(match.group(2))
+    prize = _to_int(match.group(3).replace(",", ""))
+    return race_class, distance, prize
+
+
+def _extract_col_value(row: Tag, selector: str) -> str | None:
+    cell = row.select_one(selector)
+    if not cell:
+        return None
+    text = re.sub(r"\s+", " ", unescape(cell.get_text(" ", strip=True))).strip()
+    return text or None
+
+
+def _parse_horse_row(row: Tag) -> dict[str, Any]:
+    horse_no = _to_int(_extract_col_value(row, ".col-number"))
+    horse_link = row.select_one(".col-horse a")
+    horse_name = _extract_col_value(row, ".col-horse")
+    if horse_link:
+        horse_name = re.sub(r"\s+", " ", horse_link.get_text(" ", strip=True)).strip() or horse_name
+    horse_href = horse_link.get("href") if horse_link else None
+    horse_id = _extract_query_int(horse_href, "HorseID")
+    horse_name, origin = _extract_horse_name_and_origin(horse_name)
+    return {
+        "horseNo": horse_no,
+        "horseId": horse_id,
+        "horseName": horse_name,
+        "countryOfOrigin": origin,
+        "horseHref": horse_href,
+    }
+
+
+def _parse_detail_row(row: Tag) -> dict[str, Any]:
+    jockey_text = _extract_col_value(row, ".col-jockey")
+    trainer_text = _extract_col_value(row, ".col-trainer")
+    mapped_jockey = get_jockey_full_name(jockey_text) if jockey_text else None
+    sp_text = _extract_col_value(row, ".col-win")
+    if sp_text == "-":
+        sp_text = None
+
+    return {
+        "draw": _to_int(_extract_col_value(row, ".col-draw")),
+        "rating": _to_int(_extract_col_value(row, ".col-rgt")),
+        "weightCarried": _to_float(_extract_col_value(row, ".col-wgt")),
+        "jockey": mapped_jockey,
+        "trainer": trainer_text.upper() if trainer_text else None,
+        "sp": _to_float(sp_text),
+        "place": _extract_col_value(row, ".col-place"),
+    }
 
 
 def _sectional_value(candidate: dict[str, Any], keys: list[str]) -> Any:
@@ -366,6 +598,168 @@ def parse_races_from_meeting(meeting_elem: ET.Element, fixture_ctx: dict[str, An
         )
 
     return races_payload
+
+
+def parse_meeting_overview_html(
+    html_text: str,
+    fixture_ctx: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    meeting_date = _coerce_fixture_date(fixture_ctx.get("raceDate"))
+    if meeting_date is None:
+        logger.warning("Skipping meeting overview parse due to invalid raceDate=%r", fixture_ctx.get("raceDate"))
+        return [], []
+
+    course = normalize_course(fixture_ctx.get("course"))
+    races_payload: list[dict[str, Any]] = []
+    results_payload: list[dict[str, Any]] = []
+
+    soup = BeautifulSoup(html_text, "html.parser")
+    race_items = soup.select("li.race.fields-download")
+
+    for race_item in race_items:
+        race_no = _to_int(_extract_col_value(race_item, "table.overview-info td.col1"))
+        if race_no is None:
+            continue
+
+        time_text = _extract_col_value(race_item, "table.overview-info td.col2") or ""
+        start_times = _combine_ampm_race_times(meeting_date, time_text)
+        if not start_times:
+            logger.warning(
+                "Skipping race due to invalid start time meeting=%s raceNo=%s time=%r",
+                fixture_ctx.get("meta", {}).get("DayID"),
+                race_no,
+                time_text,
+            )
+            continue
+        start_time, start_time_zoned = start_times
+
+        race_name = _extract_col_value(race_item, "table.overview-info td.col3 a")
+        col4_text = _extract_col_value(race_item, "table.overview-info td.col4") or ""
+        race_class, distance, prize_money = _parse_race_class_distance_prize(col4_text)
+        race_id_link = race_item.select_one("a[href*='RaceID=']")
+        race_xml_id = _extract_query_int(race_id_link.get("href") if race_id_link else None, "RaceID")
+        if race_xml_id is None:
+            logger.warning(
+                "Skipping race without RaceID meeting=%s raceNo=%s",
+                fixture_ctx.get("meta", {}).get("DayID"),
+                race_no,
+            )
+            continue
+
+        direction = get_direction(course, str(int(distance)), "TURF") if course and distance is not None else None
+        race_payload = {
+            "raceDate": meeting_date.isoformat(),
+            "course": course,
+            "distance": distance,
+            "distanceText": f"{int(distance)}m" if distance is not None else None,
+            "prizeMoney": prize_money,
+            "raceType": "FLAT",
+            "raceClass": race_class,
+            "raceId": RACE_ID_BASE_NZ + race_xml_id,
+            "div": 0,
+            "startTime": start_time,
+            "startTimeZoned": start_time_zoned,
+            "raceNo": race_no,
+            "country": "NZ",
+            "currency": "NZD",
+            "goingText": None,
+            "going": None,
+            "surface": "TURF",
+            "direction": direction,
+            "meta": {
+                "meetingId": (fixture_ctx.get("meta") or {}).get("DayID"),
+                "raceName": race_name,
+                "raceOverview": col4_text,
+            },
+        }
+        races_payload.append(race_payload)
+
+        horse_rows = [
+            row for row in race_item.select("div.horses .nztr-row")
+            if "row-header" not in (row.get("class") or [])
+        ]
+        fields_tab = race_item.select_one("div.horse-details .tab-content[id$='-fields']")
+        if fields_tab is None:
+            fields_tab = race_item.select_one("div.horse-details .tab-content")
+        detail_rows = []
+        if fields_tab is not None:
+            detail_rows = [
+                row for row in fields_tab.select(".nztr-row")
+                if "row-header" not in (row.get("class") or [])
+            ]
+
+        if len(horse_rows) != len(detail_rows):
+            logger.warning(
+                "Horse/detail row mismatch meeting=%s raceNo=%s horses=%s details=%s",
+                fixture_ctx.get("meta", {}).get("DayID"),
+                race_no,
+                len(horse_rows),
+                len(detail_rows),
+            )
+
+        for horse_row, detail_row in zip(horse_rows, detail_rows):
+            horse = _parse_horse_row(horse_row)
+            detail = _parse_detail_row(detail_row)
+            horse_no = horse.get("horseNo")
+            if horse_no is None:
+                continue
+
+            results_payload.append(
+                {
+                    "startTime": race_payload["startTime"],
+                    "startTimeZoned": race_payload["startTimeZoned"],
+                    "course": race_payload["course"],
+                    "raceId": race_payload["raceId"],
+                    "div": race_payload["div"],
+                    "horseNo": horse_no,
+                    "horseId": horse.get("horseId") or -999,
+                    "horseName": horse.get("horseName"),
+                    "countryOfOrigin": horse.get("countryOfOrigin") or "NZ",
+                    "draw": detail.get("draw"),
+                    "jockey": detail.get("jockey"),
+                    "trainer": detail.get("trainer"),
+                    "jockeyId": -999,
+                    "trainerId": -999,
+                    "rank": None,
+                    "finishingTime": None,
+                    "weightCarried": detail.get("weightCarried"),
+                    "last1fTime": None,
+                    "last1fSplit": None,
+                    "last1fPos": None,
+                    "last1f": None,
+                    "last2fTime": None,
+                    "last2fSplit": None,
+                    "last2fPos": None,
+                    "last2f": None,
+                    "last3fTime": None,
+                    "last3fSplit": None,
+                    "last3fPos": None,
+                    "last3f": None,
+                    "last4fTime": None,
+                    "last4fSplit": None,
+                    "last4fPos": None,
+                    "last4f": None,
+                    "last5fTime": None,
+                    "last5fSplit": None,
+                    "last5fPos": None,
+                    "last5f": None,
+                    "first1fTime": None,
+                    "first1fSplit": None,
+                    "first1fPos": None,
+                    "first1f": None,
+                    "first2fTime": None,
+                    "first2fSplit": None,
+                    "first2fPos": None,
+                    "first2f": None,
+                    "sp": detail.get("sp"),
+                    "meta": {
+                        "horse": horse,
+                        "card": detail,
+                    },
+                }
+            )
+
+    return races_payload, results_payload
 
 
 def parse_results_from_meeting(
