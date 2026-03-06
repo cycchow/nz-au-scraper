@@ -58,15 +58,6 @@ class LoveracingProvider:
             return FixtureProcessOutput(races=[], results=[])
 
         today_nz = datetime.now(loveracing.NZ_TZ).date()
-        if fixture_date < today_nz:
-            logger.info(
-                "Skipping past loveracing fixture fixtureId=%s raceDate=%s todayNZ=%s",
-                fixture.get("fixtureId"),
-                fixture_date,
-                today_nz,
-            )
-            return FixtureProcessOutput(races=[], results=[])
-
         try:
             day_id = int(meta.get("DayID"))
         except (TypeError, ValueError):
@@ -79,6 +70,26 @@ class LoveracingProvider:
             "meta": meta,
         }
 
-        html_text = loveracing.fetch_meeting_overview_html(day_id)
-        races, results = loveracing.parse_meeting_overview_html(html_text, fixture_ctx)
+        # Future/today fixtures: fetch racecard from Meeting Overview.
+        if fixture_date >= today_nz:
+            html_text = loveracing.fetch_meeting_overview_html(day_id)
+            races, results = loveracing.parse_meeting_overview_html(html_text, fixture_ctx)
+            return FixtureProcessOutput(races=races, results=results)
+
+        # Past fixtures: fetch XML results payload.
+        filename = meta.get("ResultDownloadXML")
+        if not filename:
+            logger.warning(
+                "Skipping past fixture without ResultDownloadXML fixtureId=%s dayId=%s",
+                fixture.get("fixtureId"),
+                day_id,
+            )
+            return FixtureProcessOutput(races=[], results=[])
+
+        xml_text = loveracing.fetch_meeting_xml(day_id, str(filename))
+        races, results = loveracing.parse_meeting_xml(
+            xml_text,
+            fixture_ctx,
+            sectional_fetcher=loveracing.fetch_sectionals,
+        )
         return FixtureProcessOutput(races=races, results=results)

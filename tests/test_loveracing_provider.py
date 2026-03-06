@@ -10,19 +10,37 @@ def test_accepts_fixture_requires_day_id():
     assert not provider.accepts_fixture({"src": "loveracing", "meta": {"ResultDownloadXML": "Race.xml"}})
 
 
-def test_parse_fixture_skips_past_fixture():
+def test_parse_fixture_uses_xml_for_past_fixture(monkeypatch):
     provider = LoveracingProvider()
     today_nz = loveracing.datetime.now(loveracing.NZ_TZ).date()
     fixture = {
         "fixtureId": 1,
         "raceDate": (today_nz - timedelta(days=1)).isoformat(),
         "course": "Ellerslie",
-        "meta": {"DayID": 54916},
+        "meta": {"DayID": 54916, "ResultDownloadXML": "Race_54916.xml"},
     }
 
+    calls = {"xml": 0, "parse_xml": 0}
+
+    def fake_fetch_xml(day_id: int, filename: str):
+        calls["xml"] += 1
+        assert day_id == 54916
+        assert filename == "Race_54916.xml"
+        return "<meeting></meeting>"
+
+    def fake_parse_xml(xml_text: str, fixture_ctx: dict, sectional_fetcher=None):
+        calls["parse_xml"] += 1
+        assert xml_text == "<meeting></meeting>"
+        assert fixture_ctx["meta"]["DayID"] == 54916
+        return ([{"raceId": 123}], [{"raceId": 123, "horseNo": 1}])
+
+    monkeypatch.setattr(loveracing, "fetch_meeting_xml", fake_fetch_xml)
+    monkeypatch.setattr(loveracing, "parse_meeting_xml", fake_parse_xml)
+
     parsed = provider.parse_fixture(fixture)
-    assert parsed.races == []
-    assert parsed.results == []
+    assert calls == {"xml": 1, "parse_xml": 1}
+    assert len(parsed.races) == 1
+    assert len(parsed.results) == 1
 
 
 def test_parse_fixture_processes_future_fixture(monkeypatch):

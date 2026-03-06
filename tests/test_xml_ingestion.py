@@ -1,5 +1,7 @@
 from datetime import date
 
+import pytest
+
 from loveracing import loveracing
 
 
@@ -68,5 +70,35 @@ def test_parse_meeting_xml_race_and_result_mapping():
     assert r1["first2fPos"] == 1
     assert r1["last4fSplit"] == 12.67
     assert r1["last3fSplit"] == 12.75
+    assert r1["last2fSplit"] == 12.06
     assert r1["last1fSplit"] == 11.93
+    assert r1["last1f"] == 11.93
+    assert r1["last2f"] == pytest.approx(23.99)
+    assert r1["last3f"] == pytest.approx(36.74)
+    assert r1["last4f"] == pytest.approx(49.41)
     assert r1["raceId"] == races[0]["raceId"]
+    assert r2["last1f"] is None
+    assert r2["last2fSplit"] is None
+    assert r2["last2f"] is None
+    assert r2["last3f"] is None
+    assert r2["last4f"] is None
+
+
+def test_map_sectionals_flat_keys_compute_last_furlongs():
+    mapped = loveracing._map_sectionals(  # noqa: SLF001
+        {
+            "last200Split": 11.93,
+            "last400Split": 12.06,
+            "last600Split": 12.75,
+            "last800Split": 12.67,
+        }
+    )
+
+    assert mapped["last4fSplit"] == 12.67
+    assert mapped["last1fSplit"] == 11.93
+    assert mapped["last2fSplit"] == 12.06
+    assert mapped["last3fSplit"] == 12.75
+    assert mapped["last1f"] == 11.93
+    assert mapped["last2f"] == pytest.approx(23.99)
+    assert mapped["last3f"] == pytest.approx(36.74)
+    assert mapped["last4f"] == pytest.approx(49.41)

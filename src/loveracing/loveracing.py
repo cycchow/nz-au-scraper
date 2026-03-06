@@ -452,8 +452,13 @@ def _map_sectionals(sectional: dict[str, Any] | None) -> dict[str, Any]:
         "first2fPos": None,
         "first2f": None,
         "last4fSplit": None,
+        "last2fSplit": None,
         "last3fSplit": None,
         "last1fSplit": None,
+        "last1f": None,
+        "last2f": None,
+        "last3f": None,
+        "last4f": None,
         "sectionalMeta": sectional or {},
     }
 
@@ -469,17 +474,21 @@ def _map_sectionals(sectional: dict[str, Any] | None) -> dict[str, Any]:
     if isinstance(entries, list) and entries:
         by_distance: dict[int, dict[str, Any]] = {}
         by_sector_number: dict[int, dict[str, Any]] = {}
+        last400_candidates: list[tuple[int, dict[str, Any]]] = []
         for entry in entries:
             sector_no = _to_int(entry.get("sector_number"))
             dist = _to_int(entry.get("sector_distance"))
             if sector_no is not None:
                 by_sector_number[sector_no] = entry
+            if dist == 400 and sector_no is not None and sector_no != 0:
+                last400_candidates.append((sector_no, entry))
             # keep first seen for a distance to avoid overwriting First 400m with Last 400m
             if dist is not None and dist not in by_distance:
                 by_distance[dist] = entry
 
         # First 400m is always sector_number=0 in the loveracing response.
         first400 = by_sector_number.get(0) or by_distance.get(400)
+        last400 = max(last400_candidates, key=lambda item: item[0])[1] if last400_candidates else None
         last800 = by_distance.get(800)
         last600 = by_distance.get(600)
         last200 = by_distance.get(200)
@@ -493,8 +502,27 @@ def _map_sectionals(sectional: dict[str, Any] | None) -> dict[str, Any]:
             mapped["first2f"] = first400_split
 
         mapped["last4fSplit"] = _to_float(last800.get("sector_time")) if last800 else None
+        mapped["last2fSplit"] = _to_float(last400.get("sector_time")) if last400 else None
         mapped["last3fSplit"] = _to_float(last600.get("sector_time")) if last600 else None
         mapped["last1fSplit"] = _to_float(last200.get("sector_time")) if last200 else None
+        mapped["last1f"] = mapped["last1fSplit"]
+        if mapped["last1fSplit"] is not None and mapped["last2fSplit"] is not None:
+            mapped["last2f"] = mapped["last1fSplit"] + mapped["last2fSplit"]
+        if (
+            mapped["last1fSplit"] is not None
+            and mapped["last2fSplit"] is not None
+            and mapped["last3fSplit"] is not None
+        ):
+            mapped["last3f"] = mapped["last1fSplit"] + mapped["last2fSplit"] + mapped["last3fSplit"]
+        if (
+            mapped["last1fSplit"] is not None
+            and mapped["last2fSplit"] is not None
+            and mapped["last3fSplit"] is not None
+            and mapped["last4fSplit"] is not None
+        ):
+            mapped["last4f"] = (
+                mapped["last1fSplit"] + mapped["last2fSplit"] + mapped["last3fSplit"] + mapped["last4fSplit"]
+            )
 
         return mapped
 
@@ -515,14 +543,35 @@ def _map_sectionals(sectional: dict[str, Any] | None) -> dict[str, Any]:
     mapped["last4fSplit"] = _to_float(
         _sectional_value(sectional, ["last800Split", "last_800_split", "last800", "last_800"])
     )
+    mapped["last2fSplit"] = _to_float(
+        _sectional_value(sectional, ["last400Split", "last_400_split", "last400", "last_400"])
+    )
     mapped["last3fSplit"] = _to_float(
         _sectional_value(sectional, ["last600Split", "last_600_split", "last600", "last_600"])
     )
     mapped["last1fSplit"] = _to_float(
         _sectional_value(sectional, ["last200Split", "last_200_split", "last200", "last_200"])
     )
+    mapped["last1f"] = mapped["last1fSplit"]
+    if mapped["last1fSplit"] is not None and mapped["last2fSplit"] is not None:
+        mapped["last2f"] = mapped["last1fSplit"] + mapped["last2fSplit"]
+    if (
+        mapped["last1fSplit"] is not None
+        and mapped["last2fSplit"] is not None
+        and mapped["last3fSplit"] is not None
+    ):
+        mapped["last3f"] = mapped["last1fSplit"] + mapped["last2fSplit"] + mapped["last3fSplit"]
+    if (
+        mapped["last1fSplit"] is not None
+        and mapped["last2fSplit"] is not None
+        and mapped["last3fSplit"] is not None
+        and mapped["last4fSplit"] is not None
+    ):
+        mapped["last4f"] = mapped["last1fSplit"] + mapped["last2fSplit"] + mapped["last3fSplit"] + mapped["last4fSplit"]
 
     return mapped
+
+
 def _index_sectionals(sectionals: list[dict[str, Any]]) -> tuple[dict[int, dict[str, Any]], dict[str, dict[str, Any]]]:
     by_no: dict[int, dict[str, Any]] = {}
     by_name: dict[str, dict[str, Any]] = {}
@@ -825,19 +874,19 @@ def parse_results_from_meeting(
                     "last1fTime": None,
                     "last1fSplit": sec_map["last1fSplit"],
                     "last1fPos": None,
-                    "last1f": None,
+                    "last1f": sec_map["last1f"],
                     "last2fTime": None,
-                    "last2fSplit": None,
+                    "last2fSplit": sec_map["last2fSplit"],
                     "last2fPos": None,
-                    "last2f": None,
+                    "last2f": sec_map["last2f"],
                     "last3fTime": None,
                     "last3fSplit": sec_map["last3fSplit"],
                     "last3fPos": None,
-                    "last3f": None,
+                    "last3f": sec_map["last3f"],
                     "last4fTime": None,
                     "last4fSplit": sec_map["last4fSplit"],
                     "last4fPos": None,
-                    "last4f": None,
+                    "last4f": sec_map["last4f"],
                     "last5fTime": None,
                     "last5fSplit": None,
                     "last5fPos": None,
