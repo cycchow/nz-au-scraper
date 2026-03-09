@@ -16,6 +16,14 @@ from utils.jockey_name_mapping import get_jockey_full_name
 
 logger = logging.getLogger(__name__)
 
+
+def _normalize_jockey_name(name: str | None) -> str | None:
+    if name is None:
+        return None
+    cleaned = re.sub(r"\s*\([^)]*\)\s*$", "", str(name)).strip()
+    return cleaned or None
+
+
 MEETING_RESULTS_ENDPOINT = "https://loveracing.nz/ServerScript/RaceInfo.aspx/GetMeetingResults"
 CALENDAR_EVENTS_ENDPOINT = "https://loveracing.nz/ServerScript/RaceInfo.aspx/GetCalendarEvents"
 RESULT_DOWNLOAD_ENDPOINT = "https://loveracing.nz/SystemTemplates/RaceInfo/ResultDownloads.ashx"
@@ -420,7 +428,7 @@ def _parse_horse_row(row: Tag) -> dict[str, Any]:
 
 
 def _parse_detail_row(row: Tag) -> dict[str, Any]:
-    jockey_text = _extract_col_value(row, ".col-jockey")
+    jockey_text = _normalize_jockey_name(_extract_col_value(row, ".col-jockey"))
     trainer_text = _extract_col_value(row, ".col-trainer")
     mapped_jockey = get_jockey_full_name(jockey_text) if jockey_text else None
     sp_text = _extract_col_value(row, ".col-win")
@@ -848,7 +856,7 @@ def parse_results_from_meeting(
             sec_map = _map_sectionals(sectional)
 
             jockey_elem = runner.find("./jockey")
-            jockey_name = jockey_elem.attrib.get("name") if jockey_elem is not None else None
+            jockey_name = _normalize_jockey_name(jockey_elem.attrib.get("name") if jockey_elem is not None else None)
             jockey_carried = jockey_elem.attrib.get("carried") if jockey_elem is not None else None
             jockey_mapped = get_jockey_full_name(jockey_name) if jockey_name else None
 
