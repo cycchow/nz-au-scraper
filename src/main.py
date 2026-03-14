@@ -67,11 +67,34 @@ def src_for_country(country: str, provider: ScraperProvider | None = None) -> st
     return "era"
 
 
+def normalize_fixture_race_date(value: Any) -> date | None:
+    if isinstance(value, date):
+        return value
+    if not value:
+        return None
+
+    text = str(value).strip()
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        pass
+
+    try:
+        return date.fromisoformat(text.replace("Z", "+00:00").split("T")[0])
+    except ValueError:
+        return None
+
+
 def save_fixtures(fixtures, country="NZ", provider: ScraperProvider | None = None):
     fixture_id_base = fixture_id_base_for_country(country)
     src = src_for_country(country, provider=provider)
 
     for fixture in fixtures:
+        race_date = normalize_fixture_race_date(fixture.get("raceDate"))
+        if race_date is None:
+            logger.warning("Skipping fixture with invalid raceDate=%r", fixture.get("raceDate"))
+            continue
+
         meta = fixture.get("meta", {}) or {}
         meeting_id = fixture.get("meetingId")
         if meeting_id is None:
@@ -85,7 +108,7 @@ def save_fixtures(fixtures, country="NZ", provider: ScraperProvider | None = Non
 
         meeting_id = int(meeting_id)
         input_obj = {
-            "raceDate": fixture.get("raceDate").isoformat(),
+            "raceDate": race_date.isoformat(),
             "course": fixture.get("course"),
             "raceType": "FLAT",
             "surface": None,
@@ -94,7 +117,7 @@ def save_fixtures(fixtures, country="NZ", provider: ScraperProvider | None = Non
             "reading": None,
             "raceClass": None,
             "fixtureId": fixture_id_base + meeting_id,
-            "fixtureYear": fixture.get("year"),
+            "fixtureYear": fixture.get("year") or fixture.get("fixtureYear") or race_date.year,
             "meetingId": meeting_id,
             "noOfRaces": None,
             "stalls": None,
@@ -225,6 +248,7 @@ def process_fixture_record(provider: ScraperProvider, fixture: dict[str, Any]):
         logger.debug("Skipping fixture not accepted by provider=%s fixtureId=%s", provider.name, fixture.get("fixtureId"))
         return
 
+    meta_before = json.dumps(fixture.get("meta", {}), sort_keys=True, default=str)
     try:
         parsed: FixtureProcessOutput = provider.parse_fixture(fixture)
     except Exception as exc:  # noqa: BLE001
@@ -235,6 +259,10 @@ def process_fixture_record(provider: ScraperProvider, fixture: dict[str, Any]):
             exc,
         )
         return
+
+    meta_after = json.dumps(fixture.get("meta", {}), sort_keys=True, default=str)
+    if meta_after != meta_before:
+        save_fixtures([fixture], country=fixture.get("country") or provider.default_country, provider=provider)
 
     logger.info(
         "Parsed fixture source=%s fixtureId=%s races=%s results=%s",

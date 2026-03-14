@@ -58,3 +58,30 @@ def test_save_fixtures_uses_top_level_meeting_id(monkeypatch):
     assert payload["country"] == "AUS"
     assert payload["meetingId"] == 700123456
     assert payload["fixtureId"] == 8000000000 + 700123456
+
+
+def test_save_fixtures_accepts_graphql_style_fixture(monkeypatch):
+    captured = []
+
+    def fake_send_merge_mutation(type_name, input_obj):
+        captured.append((type_name, input_obj))
+        return {"ok": True}
+
+    monkeypatch.setattr(main, "send_merge_mutation", fake_send_merge_mutation)
+
+    fixtures = [
+        {
+            "raceDate": "2026-03-06",
+            "course": "Ellerslie",
+            "fixtureYear": 2026,
+            "country": "NZ",
+            "meta": {"DayID": 54915, "ResultDownloadXML": "Race_54915.xml"},
+        }
+    ]
+
+    main.save_fixtures(fixtures, country="NZ")
+
+    _, payload = captured[0]
+    assert payload["raceDate"] == "2026-03-06"
+    assert payload["fixtureYear"] == 2026
+    assert payload["meta"]["ResultDownloadXML"] == "Race_54915.xml"

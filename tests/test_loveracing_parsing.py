@@ -3,6 +3,7 @@ from datetime import date
 from loveracing.loveracing import (
     build_meeting_overview_url,
     decode_meetings_payload,
+    fetch_meeting_result_by_day_id,
     format_calendar_payload,
     generate_month_starts,
     merge_month_meetings,
@@ -28,6 +29,21 @@ def test_build_meeting_overview_url():
 def test_parse_day_with_context():
     parsed = parse_day_with_context("Sat 28 Feb", date(2026, 2, 1))
     assert parsed.isoformat() == "2026-02-28"
+
+
+def test_fetch_meeting_result_by_day_id_filters_month_results(monkeypatch):
+    def fake_fetch_month_meetings(month_start):
+        assert month_start == date(2026, 3, 1)
+        return [
+            {"DayID": 54914, "ResultDownloadXML": "Race_54914.xml"},
+            {"DayID": 54915, "ResultDownloadXML": "Race_54915.xml"},
+        ]
+
+    monkeypatch.setattr("loveracing.loveracing.fetch_month_meetings", fake_fetch_month_meetings)
+
+    meeting = fetch_meeting_result_by_day_id(54915, date(2026, 3, 6))
+
+    assert meeting == {"DayID": 54915, "ResultDownloadXML": "Race_54915.xml"}
 
 
 def test_generate_month_starts_desc_inclusive():

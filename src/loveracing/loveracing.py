@@ -111,6 +111,15 @@ def fetch_month_meetings(month_start: date) -> list[dict[str, Any]]:
     return decode_meetings_payload(response_json)
 
 
+def fetch_meeting_result_by_day_id(day_id: int, meeting_date: date) -> dict[str, Any] | None:
+    month_start = meeting_date.replace(day=1)
+    meetings = fetch_month_meetings(month_start)
+    for meeting in meetings:
+        if _to_int(meeting.get("DayID")) == int(day_id):
+            return meeting
+    return None
+
+
 def fetch_calendar_events(month_start: date, today: date | None = None) -> list[dict[str, Any]]:
     payload = format_calendar_payload(month_start, today=today)
     resp = requests.post(CALENDAR_EVENTS_ENDPOINT, json=payload, headers=REQUEST_HEADERS, timeout=30)
