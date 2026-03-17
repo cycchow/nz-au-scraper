@@ -13,7 +13,7 @@ Primary flow:
 
 Current providers:
 - `loveracing`: NZ, fully wired for fixture ingestion and race/result parsing.
-- `racingcom`: AU, fixture ingestion exists; race/result parsing is currently a stub.
+- `racingcom`: AUS, fixture ingestion exists; race/result parsing is currently a stub.
 
 Current repo shape:
 - small Python project, no package build system yet
@@ -41,6 +41,7 @@ CLI behavior:
   - `fixtures`: fetch provider fixtures by month and merge them to GraphQL
   - `races-results`: read fixtures back from GraphQL, parse them via provider, then merge races/results
 - `--from` / `--to`: accepts `YYYY-MM` or `YYYY-MM-DD`
+- if `--source` is omitted, `main.py` still defaults to `loveracing`
 - `.env` is loaded before provider/config imports
 
 ## Important modules
@@ -48,9 +49,9 @@ CLI behavior:
 - `src/main.py`: orchestration, CLI, GraphQL save operations
 - `src/scrapers/base.py`: provider protocol and `FixtureProcessOutput`
 - `src/scrapers/loveracing_provider.py`: NZ provider implementation
-- `src/scrapers/racingcom_provider.py`: AU provider implementation; `parse_fixture()` returns empty output today
+- `src/scrapers/racingcom_provider.py`: AUS provider implementation; `parse_fixture()` returns empty output today
 - `src/loveracing/loveracing.py`: main Loveracing scraping/parsing logic
-- `src/racingcom/racingcom.py`: Racing.com calendar/runtime config logic
+- `src/racingcom/racingcom.py`: Racing.com runtime key discovery and calendar fixture logic
 - `src/utils/graphql_client.py`: GraphQL mutation/subscription transport
 - `src/utils/config.py`: GraphQL endpoint and TLS env config
 - `src/utils/course_utils.py`, `src/utils/jockey_name_mapping.py`: transformation helpers
@@ -97,10 +98,26 @@ Source codes:
 Expected fixture payload shape sent to GraphQL:
 - required in practice: `raceDate`, `course`, `fixtureYear`, `meetingId`, `fixtureId`, `src`, `country`, `meta`
 - fields always included by `save_fixtures()`: `raceType`, `surface`, `going`, `weather`, `reading`, `raceClass`, `noOfRaces`, `stalls`
+- `save_fixtures()` normalizes `raceDate`; ISO datetime strings like `2026-03-18T01:30:00Z` are accepted and truncated to date
 - meeting identifier resolution order:
   1. top-level `meetingId`
   2. `meta.DayID`
   3. `meta.race_meet_id`
+
+Racing.com fixture specifics:
+- default provider country is `AUS`
+- `transform_calendar_item()` requires numeric `race_meet_id`
+- racing.com top-level `meetingId` is `700000000 + race_meet_id`
+- persisted downstream `fixtureId` is still `fixture_id_base_for_country(country) + meetingId`, so with `country="AUS"` it becomes `8000000000 + meetingId`
+- calendar query currently uses:
+  - `meetTypes`: `Metro`, `Provincial`, `Country`, `Picnic`
+  - `eventTypes`: `Racing`
+  - `states`: `VIC`, `SA`, `NSW`, `QLD`, `WA`, `ACT`, `NT`, `TAS`
+- runtime key discovery is HTTP-first:
+  - fetch `https://www.racing.com`
+  - discover Next.js chunk URLs from script tags / `__NEXT_DATA__` / `_buildManifest.js`
+  - scan chunks for `CUSTOM_SITE_CONFIG`
+  - extract `appSyncGraphQLHost` and `appSyncGraphQLAPIKey`
 
 ### Races/results mode
 
@@ -123,9 +140,9 @@ Known Loveracing payload expectations from tests:
 ## Tests
 
 Use:
-- `pytest`
-- `pytest tests/test_loveracing_provider_flow.py`
-- `pytest tests/test_racingcom.py`
+- `.venv/bin/python -m pytest`
+- `.venv/bin/python -m pytest tests/test_loveracing_provider_flow.py`
+- `.venv/bin/python -m pytest tests/test_racingcom.py`
 
 Test setup:
 - `tests/conftest.py` inserts `src/` onto `sys.path`
@@ -143,26 +160,29 @@ Useful targeted test commands:
 - `pytest tests/test_racingcom.py`
 - `pytest tests/test_racingcom.py tests/test_fixture_transform.py`
 
+If the system `python` / `pytest` is missing, use the repo venv:
+- `.venv/bin/python -m pytest -q`
+
 What each test file is for:
 - `tests/test_fixture_transform.py`: `save_fixtures()` payload construction and fixture ID behavior
 - `tests/test_xml_ingestion.py`: Loveracing XML parsing and sectional mapping
 - `tests/test_loveracing_provider.py`: provider routing for past vs future fixtures
 - `tests/test_loveracing_provider_flow.py`: month-calendar merge behavior
-- `tests/test_racingcom.py`: provider registration, month iteration, runtime config parsing, AU fixture transforms
+- `tests/test_racingcom.py`: provider registration, month iteration, runtime config parsing, racing.com calendar query behavior, AUS fixture transforms
 
 ## Known project realities
 
 - `src/loveracing/loveracing.py` is currently modified in the worktree; do not overwrite user changes blindly.
-- `racingcom` supports fixture ingestion only. If asked to add AU race/result parsing, start in `src/scrapers/racingcom_provider.py` and `src/racingcom/racingcom.py`.
+- `racingcom` supports fixture ingestion only. If asked to add AUS race/result parsing, start in `src/scrapers/racingcom_provider.py` and `src/racingcom/racingcom.py`.
 - README is minimal and does not fully describe the race/result mode.
-- `Agents.md` is a shortcut, not a source of truth when behavior is subtle.
+- `AGENTS.md` is a shortcut, not a source of truth when behavior is subtle.
 
 ## File risk guide
 
 Safest files to edit:
 - tests under `tests/`
 - `README.md`
-- `Agents.md`
+- `AGENTS.md`
 - provider files when behavior change is isolated
 
 Higher-risk files:
@@ -188,7 +208,7 @@ When changing these higher-risk files:
 ## Fast orientation checklist
 
 When returning to this repo, usually read only:
-1. `Agents.md`
+1. `AGENTS.md`
 2. `src/main.py`
 3. the provider file being changed
 4. the matching tests

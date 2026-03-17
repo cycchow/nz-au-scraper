@@ -377,6 +377,7 @@ jockey_name_mapping = {
     "MRS C SCHNYDER": "CECILIA SCHNYDER",
     "JOÃO MOREIRA": "JOAO MOREIRA",
     "J MOREIRA": "JOAO MOREIRA",
+    "HUGH BOWMAN HK": "HUGH BOWMAN",
 }
 
 

@@ -3,7 +3,7 @@ import asyncio
 import json
 import logging
 import logging.config
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +48,20 @@ def get_provider(source: str) -> ScraperProvider:
     provider = PROVIDERS.get(source)
     if not provider:
         raise ValueError(f"Unknown source '{source}'. Available: {', '.join(sorted(PROVIDERS))}")
+    return provider
+
+
+def get_provider_for_fixture(fixture: dict[str, Any]) -> ScraperProvider | None:
+    src = fixture.get("src")
+    if not src:
+        logger.warning("Skipping fixture without src fixtureId=%s", fixture.get("fixtureId"))
+        return None
+
+    provider = PROVIDERS.get(str(src))
+    if provider is None:
+        logger.warning("Skipping fixture with unknown src=%r fixtureId=%s", src, fixture.get("fixtureId"))
+        return None
+
     return provider
 
 
@@ -123,7 +137,7 @@ def save_fixtures(fixtures, country="NZ", provider: ScraperProvider | None = Non
             "stalls": None,
             "src": src,
             "country": country,
-            "meta": json.loads(json.dumps(fixture.get("meta", fixture), default=str)),
+            "meta": json.loads(json.dumps(fixture.get("meta", fixture), default=json_compatible_default)),
         }
 
         try:
@@ -135,7 +149,7 @@ def save_fixtures(fixtures, country="NZ", provider: ScraperProvider | None = Non
 
 def save_races(races: list[dict[str, Any]]):
     for race in races:
-        payload = json.loads(json.dumps(race, default=str))
+        payload = json.loads(json.dumps(race, default=json_compatible_default))
         try:
             send_merge_mutation("com.superstring.globalracing.uk.models.types.Races", payload)
         except Exception as exc:  # noqa: BLE001
@@ -144,12 +158,15 @@ def save_races(races: list[dict[str, Any]]):
 
 def save_results(results: list[dict[str, Any]]):
     for result in results:
-        payload = json.loads(json.dumps(result, default=str))
+        payload = json.loads(json.dumps(result, default=json_compatible_default))
         try:
             logger.info(
-                "Merging result raceId=%s horseNo=%s horseName=%s "
+                "Merging result raceDate=%s course=%s raceNo=%s raceId=%s horseNo=%s horseName=%s "
                 "first2fTime=%s first2fSplit=%s first2fPos=%s first2f=%s "
                 "last4fSplit=%s last3fSplit=%s last1fSplit=%s",
+                payload.get("raceDate"),
+                payload.get("course"),
+                payload.get("meta", {}).get("horse", {}).get("raceNumber"),
                 payload.get("raceId"),
                 payload.get("horseNo"),
                 payload.get("horseName"),
@@ -161,7 +178,7 @@ def save_results(results: list[dict[str, Any]]):
                 payload.get("last3fSplit"),
                 payload.get("last1fSplit"),
             )
-            logger.debug("Results merge payload: %s", json.dumps(payload, ensure_ascii=False, default=str))
+            logger.debug("Results merge payload: %s", json.dumps(payload, ensure_ascii=False, default=json_compatible_default))
             send_merge_mutation("com.superstring.globalracing.uk.models.types.Results", payload)
         except Exception as exc:  # noqa: BLE001
             logger.error(
@@ -170,6 +187,14 @@ def save_results(results: list[dict[str, Any]]):
                 payload.get("horseNo"),
                 exc,
             )
+
+
+def json_compatible_default(value: Any):
+    if isinstance(value, datetime):
+        return value.isoformat(timespec="seconds")
+    if isinstance(value, date):
+        return value.isoformat()
+    return str(value)
 
 
 def parse_date_or_month_arg(value: str) -> date:
@@ -213,8 +238,8 @@ def run_fixture_ingestion(provider: ScraperProvider, from_month: date, to_month:
     save_fixtures(total_fixtures, country=country, provider=provider)
 
 
-async def get_fixtures_from_graphql(from_date: date, to_date: date, country: str = "NZ") -> list[dict[str, Any]]:
-    subscription = """
+def build_get_fixtures_subscription() -> str:
+    return """
     subscription getFixtures($from: Date!, $to: Date!, $fetchAll: Boolean, $country: String) {
       getFixtures(from: $from, to: $to, fetchAll: $fetchAll, country: $country) {
         fixtureId
@@ -227,6 +252,14 @@ async def get_fixtures_from_graphql(from_date: date, to_date: date, country: str
       }
     }
     """
+
+
+async def get_fixtures_from_graphql(
+    from_date: date,
+    to_date: date,
+    country: str = "NZ",
+) -> list[dict[str, Any]]:
+    subscription = build_get_fixtures_subscription()
     variables = {
         "from": from_date.isoformat(),
         "to": to_date.isoformat(),
@@ -275,42 +308,53 @@ def process_fixture_record(provider: ScraperProvider, fixture: dict[str, Any]):
     save_results(parsed.results)
 
 
-async def process_fixtures_from_graphql(provider: ScraperProvider, from_date: date, to_date: date, country: str):
+async def process_fixtures_from_graphql(
+    from_date: date,
+    to_date: date,
+    country: str,
+    source_filter: str | None = None,
+):
     fixtures = await get_fixtures_from_graphql(from_date, to_date, country)
-    logger.info("Fetched fixtures from graphql count=%s source=%s", len(fixtures), provider.name)
+    logger.info("Fetched fixtures from graphql count=%s country=%s sourceFilter=%s", len(fixtures), country, source_filter)
 
     for fixture in fixtures:
+        fixture_src = fixture.get("src")
+        if source_filter and fixture_src != source_filter:
+            continue
+
+        provider = get_provider_for_fixture(fixture)
+        if provider is None:
+            continue
         process_fixture_record(provider, fixture)
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Global racing scraper orchestrator")
-    parser.add_argument("--source", choices=sorted(PROVIDERS.keys()), default="loveracing")
+    parser.add_argument("--source", choices=sorted(PROVIDERS.keys()))
 
     args_preview, _ = parser.parse_known_args(argv)
-    provider = get_provider(args_preview.source)
+    preview_provider = get_provider(args_preview.source) if args_preview.source else None
 
     today_month = date.today().replace(day=1)
     parser.add_argument("--from", dest="from_month", type=parse_date_or_month_arg, default=today_month)
     parser.add_argument("--to", dest="to_month", type=parse_date_or_month_arg, default=date(2023, 1, 1))
-    parser.add_argument("--country", default=provider.default_country)
+    parser.add_argument("--country", default=preview_provider.default_country if preview_provider else "NZ")
     parser.add_argument("--mode", choices=["fixtures", "races-results"], default="fixtures")
     args = parser.parse_args(argv)
 
-    provider = get_provider(args.source)
-
     if args.mode == "fixtures":
+        provider = get_provider(args.source or "loveracing")
         run_fixture_ingestion(provider, args.from_month, args.to_month, args.country)
         return
 
     from_date, to_date = date_window(args.from_month, args.to_month)
     logger.info(
-        "Races-results mode source=%s date window from=%s to=%s",
-        provider.name,
+        "Races-results mode sourceFilter=%s date window from=%s to=%s",
+        args.source,
         from_date.isoformat(),
         to_date.isoformat(),
     )
-    asyncio.run(process_fixtures_from_graphql(provider, from_date, to_date, args.country))
+    asyncio.run(process_fixtures_from_graphql(from_date, to_date, args.country, source_filter=args.source))
 
 
 if __name__ == "__main__":

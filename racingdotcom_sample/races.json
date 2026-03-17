@@ -1,0 +1,1244 @@
+{
+    "data": {
+        "getNoCacheRacesForMeet": [
+            {
+                "id": "5435930",
+                "meet": {
+                    "venue": "Flemington",
+                    "meetUrl": "https://www.racing.com/form/2026-03-07/flemington",
+                    "meetUrlSegment": "2026-03-07/flemington",
+                    "trackMap": "https://s3-ap-southeast-2.amazonaws.com/racevic.static/trackmaps/FLEM.svg"
+                },
+                "raceNumber": 6,
+                "raceStatus": "Paying",
+                "distance": "1400m",
+                "time": "2026-03-07T04:05:00.000Z",
+                "name": "Darley Sires' Produce Stakes",
+                "nameForm": "VRC SIRES'",
+                "trackCondition": "Good",
+                "isTrial": 0,
+                "isJumpOut": 0,
+                "trackRating": "4",
+                "trackRecordTime": "8060",
+                "trackRecordHorseCode": "277449",
+                "trackRecordHorseName": "Lovey",
+                "trackRecordRace": {
+                    "date": null
+                },
+                "condition": "Set Weights. Group 2. Two-Years-Old, No sex restriction. No class restriction. Apprentices cannot claim. Track name: Main. Track type: Turf. Field limit: 16. $10,000 Nominator Bonus only.",
+                "prizeMoney": [
+                    "{\"Position\":1,\"Value\":\"180000.00\"}",
+                    "{\"Position\":2,\"Value\":\"54000.00\"}",
+                    "{\"Position\":3,\"Value\":\"27000.00\"}",
+                    "{\"Position\":4,\"Value\":\"13500.00\"}",
+                    "{\"Position\":5,\"Value\":\"7500.00\"}",
+                    "{\"Position\":6,\"Value\":\"6000.00\"}",
+                    "{\"Position\":7,\"Value\":\"6000.00\"}",
+                    "{\"Position\":8,\"Value\":\"6000.00\"}"
+                ],
+                "totalPrizeMoney": "300000.00",
+                "hasSectionals": true,
+                "hasTips": false,
+                "hasSpeedMap": false,
+                "hasResults": true,
+                "hasStewards": true,
+                "hasHistory": false,
+                "hasField": false,
+                "hasFullForm": false,
+                "trackCode": "149",
+                "rdcClass": "Group 2",
+                "formRaceEntries": [
+                    {
+                        "horseName": "Zambales",
+                        "position": 2,
+                        "winningTime": "8277",
+                        "standardTimeDifference": "+0.72L"
+                    },
+                    {
+                        "horseName": "Eurocanto",
+                        "position": 9,
+                        "winningTime": "8277",
+                        "standardTimeDifference": "+0.72L"
+                    },
+                    {
+                        "horseName": "Diameter",
+                        "position": 4,
+                        "winningTime": "8277",
+                        "standardTimeDifference": "+0.72L"
+                    },
+                    {
+                        "horseName": "Hydrobomb",
+                        "position": 6,
+                        "winningTime": "8277",
+                        "standardTimeDifference": "+0.72L"
+                    },
+                    {
+                        "horseName": "Dr Hook",
+                        "position": 5,
+                        "winningTime": "8277",
+                        "standardTimeDifference": "+0.72L"
+                    },
+                    {
+                        "horseName": "Inner Gold",
+                        "position": 7,
+                        "winningTime": "8277",
+                        "standardTimeDifference": "+0.72L"
+                    },
+                    {
+                        "horseName": "Leopard Shark",
+                        "position": 8,
+                        "winningTime": "8277",
+                        "standardTimeDifference": "+0.72L"
+                    },
+                    {
+                        "horseName": "Almost An Angel",
+                        "position": 109,
+                        "winningTime": null,
+                        "standardTimeDifference": "+0.72L"
+                    },
+                    {
+                        "horseName": "Expensive Taste",
+                        "position": 3,
+                        "winningTime": "8277",
+                        "standardTimeDifference": "+0.72L"
+                    },
+                    {
+                        "horseName": "Grinzinger Heart",
+                        "position": 1,
+                        "winningTime": "8277",
+                        "standardTimeDifference": "+0.72L"
+                    },
+                    {
+                        "horseName": "Refuse To Curtsy",
+                        "position": 10,
+                        "winningTime": "8277",
+                        "standardTimeDifference": "+0.72L"
+                    },
+                    {
+                        "horseName": "Regal Ambition",
+                        "position": 109,
+                        "winningTime": null,
+                        "standardTimeDifference": "+0.72L"
+                    }
+                ],
+                "toEightHundredMetresSeconds": 3617,
+                "standardTimeTo800Difference": "+4.44L",
+                "eightHundredToFourHundredMetresSeconds": 2254,
+                "standardTime800To400Difference": "+3.12L",
+                "fourHundredToFinishMetresSeconds": 2406,
+                "standardTime400ToFinishDifference": "-6.84L",
+                "raceTime": "1:22.77",
+                "standardTimeDifference": "+0.72L",
+                "standardTimeId": "149_Good_1400_Group 2",
+                "stewardsReportUrl": "https://cdn.rmdprod.racing.com/RV/stewards/2026-03-07/flemington/stewardsreports/race-6.htm"
+            },
+            {
+                "id": "5435931",
+                "meet": {
+                    "venue": "Flemington",
+                    "meetUrl": "https://www.racing.com/form/2026-03-07/flemington",
+                    "meetUrlSegment": "2026-03-07/flemington",
+                    "trackMap": "https://s3-ap-southeast-2.amazonaws.com/racevic.static/trackmaps/FLEM.svg"
+                },
+                "raceNumber": 3,
+                "raceStatus": "Paying",
+                "distance": "1000m",
+                "time": "2026-03-07T02:20:00.000Z",
+                "name": "Good Friday Appeal Ottawa Stakes",
+                "nameForm": "OTTAWA",
+                "trackCondition": "Good",
+                "isTrial": 0,
+                "isJumpOut": 0,
+                "trackRating": "4",
+                "trackRecordTime": "5542",
+                "trackRecordHorseCode": "790716",
+                "trackRecordHorseName": "Black Caviar",
+                "trackRecordRace": {
+                    "date": "2013-02-16"
+                },
+                "condition": "Set Weights. Group 3. Two-Years-Old, Fillies. No class restriction. Apprentices cannot claim. Track name: Main. Track type: Turf. Field limit: 16. $10,000 Nominator Bonus only.",
+                "prizeMoney": [
+                    "{\"Position\":1,\"Value\":\"120000.00\"}",
+                    "{\"Position\":2,\"Value\":\"36000.00\"}",
+                    "{\"Position\":3,\"Value\":\"18000.00\"}",
+                    "{\"Position\":4,\"Value\":\"9000.00\"}",
+                    "{\"Position\":5,\"Value\":\"5000.00\"}",
+                    "{\"Position\":6,\"Value\":\"4000.00\"}",
+                    "{\"Position\":7,\"Value\":\"4000.00\"}",
+                    "{\"Position\":8,\"Value\":\"4000.00\"}"
+                ],
+                "totalPrizeMoney": "200000.00",
+                "hasSectionals": true,
+                "hasTips": false,
+                "hasSpeedMap": false,
+                "hasResults": true,
+                "hasStewards": true,
+                "hasHistory": false,
+                "hasField": false,
+                "hasFullForm": false,
+                "trackCode": "149",
+                "rdcClass": "Group 3",
+                "formRaceEntries": [
+                    {
+                        "horseName": "Rebel Tuesday",
+                        "position": 4,
+                        "winningTime": "5780",
+                        "standardTimeDifference": "+1.38L"
+                    },
+                    {
+                        "horseName": "Medicinal",
+                        "position": 1,
+                        "winningTime": "5780",
+                        "standardTimeDifference": "+1.38L"
+                    },
+                    {
+                        "horseName": "Simply Steffi",
+                        "position": 5,
+                        "winningTime": "5780",
+                        "standardTimeDifference": "+1.38L"
+                    },
+                    {
+                        "horseName": "Scintillation",
+                        "position": 3,
+                        "winningTime": "5780",
+                        "standardTimeDifference": "+1.38L"
+                    },
+                    {
+                        "horseName": "Better Off Alone",
+                        "position": 8,
+                        "winningTime": "5780",
+                        "standardTimeDifference": "+1.38L"
+                    },
+                    {
+                        "horseName": "Chapados",
+                        "position": 7,
+                        "winningTime": "5780",
+                        "standardTimeDifference": "+1.38L"
+                    },
+                    {
+                        "horseName": "Diamond Dawn",
+                        "position": 109,
+                        "winningTime": null,
+                        "standardTimeDifference": "+1.38L"
+                    },
+                    {
+                        "horseName": "Jadzia",
+                        "position": 2,
+                        "winningTime": "5780",
+                        "standardTimeDifference": "+1.38L"
+                    },
+                    {
+                        "horseName": "Money Honey",
+                        "position": 109,
+                        "winningTime": null,
+                        "standardTimeDifference": "+1.38L"
+                    },
+                    {
+                        "horseName": "Sanctuary",
+                        "position": 6,
+                        "winningTime": "5780",
+                        "standardTimeDifference": "+1.38L"
+                    }
+                ],
+                "toEightHundredMetresSeconds": 1386,
+                "standardTimeTo800Difference": "-1.44L",
+                "eightHundredToFourHundredMetresSeconds": 2195,
+                "standardTime800To400Difference": "-1.92L",
+                "fourHundredToFinishMetresSeconds": 2199,
+                "standardTime400ToFinishDifference": "+4.74L",
+                "raceTime": "57.80",
+                "standardTimeDifference": "+1.38L",
+                "standardTimeId": "149_Good_1000_Group 3",
+                "stewardsReportUrl": "https://cdn.rmdprod.racing.com/RV/stewards/2026-03-07/flemington/stewardsreports/race-3.htm"
+            },
+            {
+                "id": "5435932",
+                "meet": {
+                    "venue": "Flemington",
+                    "meetUrl": "https://www.racing.com/form/2026-03-07/flemington",
+                    "meetUrlSegment": "2026-03-07/flemington",
+                    "trackMap": "https://s3-ap-southeast-2.amazonaws.com/racevic.static/trackmaps/FLEM.svg"
+                },
+                "raceNumber": 1,
+                "raceStatus": "Paying",
+                "distance": "1100m",
+                "time": "2026-03-07T01:15:00.000Z",
+                "name": "TAB We're On",
+                "nameForm": "3Y-Qlty",
+                "trackCondition": "Good",
+                "isTrial": 0,
+                "isJumpOut": 0,
+                "trackRating": "4",
+                "trackRecordTime": "6215",
+                "trackRecordHorseCode": "917844",
+                "trackRecordHorseName": "Loveyamadly",
+                "trackRecordRace": {
+                    "date": "2013-03-02"
+                },
+                "condition": "Quality. Three-Years-Old, No sex restriction. No class restriction. Apprentices can claim. Track name: Main. Track type: Turf. Field limit: 16. This race carries VOBIS Silver Bonuses of $30,000.",
+                "prizeMoney": [
+                    "{\"Position\":1,\"Value\":\"82500.00\"}",
+                    "{\"Position\":2,\"Value\":\"27000.00\"}",
+                    "{\"Position\":3,\"Value\":\"13500.00\"}",
+                    "{\"Position\":4,\"Value\":\"7500.00\"}",
+                    "{\"Position\":5,\"Value\":\"4500.00\"}",
+                    "{\"Position\":6,\"Value\":\"3000.00\"}",
+                    "{\"Position\":7,\"Value\":\"3000.00\"}",
+                    "{\"Position\":8,\"Value\":\"3000.00\"}",
+                    "{\"Position\":9,\"Value\":\"3000.00\"}",
+                    "{\"Position\":10,\"Value\":\"3000.00\"}"
+                ],
+                "totalPrizeMoney": "150000.00",
+                "hasSectionals": true,
+                "hasTips": false,
+                "hasSpeedMap": false,
+                "hasResults": true,
+                "hasStewards": true,
+                "hasHistory": false,
+                "hasField": false,
+                "hasFullForm": false,
+                "trackCode": "149",
+                "rdcClass": "Quality",
+                "formRaceEntries": [
+                    {
+                        "horseName": "Legacy Bound",
+                        "position": 1,
+                        "winningTime": "6347",
+                        "standardTimeDifference": null
+                    },
+                    {
+                        "horseName": "Shining Smile",
+                        "position": 5,
+                        "winningTime": "6347",
+                        "standardTimeDifference": null
+                    },
+                    {
+                        "horseName": "Burma Star",
+                        "position": 2,
+                        "winningTime": "6347",
+                        "standardTimeDifference": null
+                    },
+                    {
+                        "horseName": "Military Tycoon",
+                        "position": 4,
+                        "winningTime": "6347",
+                        "standardTimeDifference": null
+                    },
+                    {
+                        "horseName": "Go Left",
+                        "position": 7,
+                        "winningTime": "6347",
+                        "standardTimeDifference": null
+                    },
+                    {
+                        "horseName": "Pure Passion",
+                        "position": 109,
+                        "winningTime": null,
+                        "standardTimeDifference": null
+                    },
+                    {
+                        "horseName": "Vangogh Bankcheque",
+                        "position": 3,
+                        "winningTime": "6347",
+                        "standardTimeDifference": null
+                    },
+                    {
+                        "horseName": "Petit Artiste",
+                        "position": 6,
+                        "winningTime": "6347",
+                        "standardTimeDifference": null
+                    }
+                ],
+                "toEightHundredMetresSeconds": 1979,
+                "standardTimeTo800Difference": "-3.72L",
+                "eightHundredToFourHundredMetresSeconds": 2170,
+                "standardTime800To400Difference": "+0.00L",
+                "fourHundredToFinishMetresSeconds": 2198,
+                "standardTime400ToFinishDifference": "+5.34L",
+                "raceTime": "1:03.47",
+                "standardTimeDifference": "+1.68L",
+                "standardTimeId": "149_Good_1100_All",
+                "stewardsReportUrl": "https://cdn.rmdprod.racing.com/RV/stewards/2026-03-07/flemington/stewardsreports/race-1.htm"
+            },
+            {
+                "id": "5435933",
+                "meet": {
+                    "venue": "Flemington",
+                    "meetUrl": "https://www.racing.com/form/2026-03-07/flemington",
+                    "meetUrlSegment": "2026-03-07/flemington",
+                    "trackMap": "https://s3-ap-southeast-2.amazonaws.com/racevic.static/trackmaps/FLEM.svg"
+                },
+                "raceNumber": 5,
+                "raceStatus": "Paying",
+                "distance": "1600m",
+                "time": "2026-03-07T03:30:00.000Z",
+                "name": "TAB & World Pool Kewney Stakes",
+                "nameForm": "KEWNEY",
+                "trackCondition": "Good",
+                "isTrial": 0,
+                "isJumpOut": 0,
+                "trackRating": "4",
+                "trackRecordTime": "9349",
+                "trackRecordHorseCode": "418103",
+                "trackRecordHorseName": "Scenic Peak",
+                "trackRecordRace": {
+                    "date": "2002-11-09"
+                },
+                "condition": "Set Weights. Group 2. Three-Years-Old, Fillies. No class restriction. Apprentices cannot claim. Track name: Main. Track type: Turf. Field limit: 16. $10,000 Nominator Bonus only.",
+                "prizeMoney": [
+                    "{\"Position\":1,\"Value\":\"180000.00\"}",
+                    "{\"Position\":2,\"Value\":\"54000.00\"}",
+                    "{\"Position\":3,\"Value\":\"27000.00\"}",
+                    "{\"Position\":4,\"Value\":\"13500.00\"}",
+                    "{\"Position\":5,\"Value\":\"7500.00\"}",
+                    "{\"Position\":6,\"Value\":\"6000.00\"}",
+                    "{\"Position\":7,\"Value\":\"6000.00\"}",
+                    "{\"Position\":8,\"Value\":\"6000.00\"}"
+                ],
+                "totalPrizeMoney": "300000.00",
+                "hasSectionals": true,
+                "hasTips": false,
+                "hasSpeedMap": false,
+                "hasResults": true,
+                "hasStewards": true,
+                "hasHistory": false,
+                "hasField": false,
+                "hasFullForm": false,
+                "trackCode": "149",
+                "rdcClass": "Group 2",
+                "formRaceEntries": [
+                    {
+                        "horseName": "Salty Pearl",
+                        "position": 3,
+                        "winningTime": "9443",
+                        "standardTimeDifference": "+10.14L"
+                    },
+                    {
+                        "horseName": "Sass Appeal",
+                        "position": 1,
+                        "winningTime": "9443",
+                        "standardTimeDifference": "+10.14L"
+                    },
+                    {
+                        "horseName": "After Summer",
+                        "position": 6,
+                        "winningTime": "9443",
+                        "standardTimeDifference": "+10.14L"
+                    },
+                    {
+                        "horseName": "Mystery 'N' Drama",
+                        "position": 109,
+                        "winningTime": null,
+                        "standardTimeDifference": "+10.14L"
+                    },
+                    {
+                        "horseName": "Pillow Fight",
+                        "position": 2,
+                        "winningTime": "9443",
+                        "standardTimeDifference": "+10.14L"
+                    },
+                    {
+                        "horseName": "Exit",
+                        "position": 4,
+                        "winningTime": "9443",
+                        "standardTimeDifference": "+10.14L"
+                    },
+                    {
+                        "horseName": "Lathlain",
+                        "position": 8,
+                        "winningTime": "9443",
+                        "standardTimeDifference": "+10.14L"
+                    },
+                    {
+                        "horseName": "Seychelles",
+                        "position": 7,
+                        "winningTime": "9443",
+                        "standardTimeDifference": "+10.14L"
+                    },
+                    {
+                        "horseName": "Naraghi",
+                        "position": 5,
+                        "winningTime": "9443",
+                        "standardTimeDifference": "+10.14L"
+                    }
+                ],
+                "toEightHundredMetresSeconds": 4911,
+                "standardTimeTo800Difference": "+3.84L",
+                "eightHundredToFourHundredMetresSeconds": 2244,
+                "standardTime800To400Difference": "+4.44L",
+                "fourHundredToFinishMetresSeconds": 2288,
+                "standardTime400ToFinishDifference": "+1.86L",
+                "raceTime": "1:34.43",
+                "standardTimeDifference": "+10.14L",
+                "standardTimeId": "149_Good_1600_Group 2",
+                "stewardsReportUrl": "https://cdn.rmdprod.racing.com/RV/stewards/2026-03-07/flemington/stewardsreports/race-5.htm"
+            },
+            {
+                "id": "5435934",
+                "meet": {
+                    "venue": "Flemington",
+                    "meetUrl": "https://www.racing.com/form/2026-03-07/flemington",
+                    "meetUrlSegment": "2026-03-07/flemington",
+                    "trackMap": "https://s3-ap-southeast-2.amazonaws.com/racevic.static/trackmaps/FLEM.svg"
+                },
+                "raceNumber": 2,
+                "raceStatus": "Paying",
+                "distance": "1100m",
+                "time": "2026-03-07T01:45:00.000Z",
+                "name": "Herald Sun Plate",
+                "nameForm": "BM84",
+                "trackCondition": "Good",
+                "isTrial": 0,
+                "isJumpOut": 0,
+                "trackRating": "4",
+                "trackRecordTime": "6215",
+                "trackRecordHorseCode": "917844",
+                "trackRecordHorseName": "Loveyamadly",
+                "trackRecordRace": {
+                    "date": "2013-03-02"
+                },
+                "condition": "Handicap. No age restriction, No sex restriction. BenchMark 84. Apprentices can claim. Track name: Main. Track type: Turf. Field limit: 16.",
+                "prizeMoney": [
+                    "{\"Position\":1,\"Value\":\"44000.00\"}",
+                    "{\"Position\":2,\"Value\":\"14400.00\"}",
+                    "{\"Position\":3,\"Value\":\"7200.00\"}",
+                    "{\"Position\":4,\"Value\":\"4000.00\"}",
+                    "{\"Position\":5,\"Value\":\"2400.00\"}",
+                    "{\"Position\":6,\"Value\":\"1600.00\"}",
+                    "{\"Position\":7,\"Value\":\"1600.00\"}",
+                    "{\"Position\":8,\"Value\":\"1600.00\"}",
+                    "{\"Position\":9,\"Value\":\"1600.00\"}",
+                    "{\"Position\":10,\"Value\":\"1600.00\"}"
+                ],
+                "totalPrizeMoney": "80000.00",
+                "hasSectionals": true,
+                "hasTips": false,
+                "hasSpeedMap": false,
+                "hasResults": true,
+                "hasStewards": true,
+                "hasHistory": false,
+                "hasField": false,
+                "hasFullForm": false,
+                "trackCode": "149",
+                "rdcClass": "BM 84",
+                "formRaceEntries": [
+                    {
+                        "horseName": "Press Down",
+                        "position": 3,
+                        "winningTime": "6329",
+                        "standardTimeDifference": "+0.66L"
+                    },
+                    {
+                        "horseName": "Nervous Witness",
+                        "position": 6,
+                        "winningTime": "6329",
+                        "standardTimeDifference": "+0.66L"
+                    },
+                    {
+                        "horseName": "She's An Artist",
+                        "position": 2,
+                        "winningTime": "6329",
+                        "standardTimeDifference": "+0.66L"
+                    },
+                    {
+                        "horseName": "Wiggum",
+                        "position": 7,
+                        "winningTime": "6329",
+                        "standardTimeDifference": "+0.66L"
+                    },
+                    {
+                        "horseName": "Fission",
+                        "position": 109,
+                        "winningTime": null,
+                        "standardTimeDifference": "+0.66L"
+                    },
+                    {
+                        "horseName": "Castellar",
+                        "position": 109,
+                        "winningTime": null,
+                        "standardTimeDifference": "+0.66L"
+                    },
+                    {
+                        "horseName": "Codigo",
+                        "position": 4,
+                        "winningTime": "6329",
+                        "standardTimeDifference": "+0.66L"
+                    },
+                    {
+                        "horseName": "Hezdarnhottoo",
+                        "position": 5,
+                        "winningTime": "6329",
+                        "standardTimeDifference": "+0.66L"
+                    },
+                    {
+                        "horseName": "Verdoux",
+                        "position": 1,
+                        "winningTime": "6329",
+                        "standardTimeDifference": "+0.66L"
+                    },
+                    {
+                        "horseName": "Nation State",
+                        "position": 8,
+                        "winningTime": "6329",
+                        "standardTimeDifference": "+0.66L"
+                    }
+                ],
+                "toEightHundredMetresSeconds": 1907,
+                "standardTimeTo800Difference": "+1.02L",
+                "eightHundredToFourHundredMetresSeconds": 2159,
+                "standardTime800To400Difference": "+0.24L",
+                "fourHundredToFinishMetresSeconds": 2263,
+                "standardTime400ToFinishDifference": "-0.6L",
+                "raceTime": "1:03.29",
+                "standardTimeDifference": "+0.66L",
+                "standardTimeId": "149_Good_1100_BM 84",
+                "stewardsReportUrl": "https://cdn.rmdprod.racing.com/RV/stewards/2026-03-07/flemington/stewardsreports/race-2.htm"
+            },
+            {
+                "id": "5435935",
+                "meet": {
+                    "venue": "Flemington",
+                    "meetUrl": "https://www.racing.com/form/2026-03-07/flemington",
+                    "meetUrlSegment": "2026-03-07/flemington",
+                    "trackMap": "https://s3-ap-southeast-2.amazonaws.com/racevic.static/trackmaps/FLEM.svg"
+                },
+                "raceNumber": 7,
+                "raceStatus": "Paying",
+                "distance": "1600m",
+                "time": "2026-03-07T04:40:00.000Z",
+                "name": "Sharp EIT The All-Star Mile",
+                "nameForm": "ALL-STAR MILE",
+                "trackCondition": "Good",
+                "isTrial": 0,
+                "isJumpOut": 0,
+                "trackRating": "3",
+                "trackRecordTime": "9349",
+                "trackRecordHorseCode": "418103",
+                "trackRecordHorseName": "Scenic Peak",
+                "trackRecordRace": {
+                    "date": "2002-11-09"
+                },
+                "condition": "Standard Weight for Age. Group 1. No age restriction, No sex restriction. No class restriction. Apprentices cannot claim. Track name: Main. Track type: Turf. Field limit: 16.",
+                "prizeMoney": [
+                    "{\"Position\":1,\"Value\":\"1150000.00\"}",
+                    "{\"Position\":2,\"Value\":\"350000.00\"}",
+                    "{\"Position\":3,\"Value\":\"175000.00\"}",
+                    "{\"Position\":4,\"Value\":\"100000.00\"}",
+                    "{\"Position\":5,\"Value\":\"75000.00\"}",
+                    "{\"Position\":6,\"Value\":\"50000.00\"}",
+                    "{\"Position\":7,\"Value\":\"50000.00\"}",
+                    "{\"Position\":8,\"Value\":\"50000.00\"}"
+                ],
+                "totalPrizeMoney": "2000000.00",
+                "hasSectionals": true,
+                "hasTips": false,
+                "hasSpeedMap": false,
+                "hasResults": true,
+                "hasStewards": true,
+                "hasHistory": false,
+                "hasField": false,
+                "hasFullForm": false,
+                "trackCode": "149",
+                "rdcClass": "Group 1",
+                "formRaceEntries": [
+                    {
+                        "horseName": "Tom Kitten",
+                        "position": 1,
+                        "winningTime": "9373",
+                        "standardTimeDifference": "+8.16L"
+                    },
+                    {
+                        "horseName": "Buckaroo",
+                        "position": 109,
+                        "winningTime": null,
+                        "standardTimeDifference": "+8.16L"
+                    },
+                    {
+                        "horseName": "Antino",
+                        "position": 8,
+                        "winningTime": "9373",
+                        "standardTimeDifference": "+8.16L"
+                    },
+                    {
+                        "horseName": "Evaporate",
+                        "position": 2,
+                        "winningTime": "9373",
+                        "standardTimeDifference": "+8.16L"
+                    },
+                    {
+                        "horseName": "Steparty",
+                        "position": 5,
+                        "winningTime": "9373",
+                        "standardTimeDifference": "+8.16L"
+                    },
+                    {
+                        "horseName": "Watch Me Rock",
+                        "position": 9,
+                        "winningTime": "9373",
+                        "standardTimeDifference": "+8.16L"
+                    },
+                    {
+                        "horseName": "Sabaj",
+                        "position": 4,
+                        "winningTime": "9373",
+                        "standardTimeDifference": "+8.16L"
+                    },
+                    {
+                        "horseName": "Pride Of Jenni",
+                        "position": 3,
+                        "winningTime": "9373",
+                        "standardTimeDifference": "+8.16L"
+                    },
+                    {
+                        "horseName": "Stefi Magnetica",
+                        "position": 7,
+                        "winningTime": "9373",
+                        "standardTimeDifference": "+8.16L"
+                    },
+                    {
+                        "horseName": "Treasurethe Moment",
+                        "position": 109,
+                        "winningTime": null,
+                        "standardTimeDifference": "+8.16L"
+                    },
+                    {
+                        "horseName": "Leica Lucy",
+                        "position": 6,
+                        "winningTime": "9373",
+                        "standardTimeDifference": "+8.16L"
+                    }
+                ],
+                "toEightHundredMetresSeconds": 4711,
+                "standardTimeTo800Difference": "+10.98L",
+                "eightHundredToFourHundredMetresSeconds": 2266,
+                "standardTime800To400Difference": "+1.56L",
+                "fourHundredToFinishMetresSeconds": 2396,
+                "standardTime400ToFinishDifference": "-4.38L",
+                "raceTime": "1:33.73",
+                "standardTimeDifference": "+8.16L",
+                "standardTimeId": "149_Good_1600_Group 1",
+                "stewardsReportUrl": "https://cdn.rmdprod.racing.com/RV/stewards/2026-03-07/flemington/stewardsreports/race-7.htm"
+            },
+            {
+                "id": "5435936",
+                "meet": {
+                    "venue": "Flemington",
+                    "meetUrl": "https://www.racing.com/form/2026-03-07/flemington",
+                    "meetUrlSegment": "2026-03-07/flemington",
+                    "trackMap": "https://s3-ap-southeast-2.amazonaws.com/racevic.static/trackmaps/FLEM.svg"
+                },
+                "raceNumber": 9,
+                "raceStatus": "Paying",
+                "distance": "1200m",
+                "time": "2026-03-07T05:55:00.000Z",
+                "name": "Yulong Newmarket Handicap",
+                "nameForm": "NEWMARKET",
+                "trackCondition": "Good",
+                "isTrial": 0,
+                "isJumpOut": 0,
+                "trackRating": "3",
+                "trackRecordTime": "6716",
+                "trackRecordHorseCode": "382689",
+                "trackRecordHorseName": "Iglesia",
+                "trackRecordRace": {
+                    "date": "2001-01-01"
+                },
+                "condition": "Handicap. Group 1. No age restriction, No sex restriction. No class restriction. Apprentices cannot claim. Track name: Main. Track type: Turf. Field limit: 22.",
+                "prizeMoney": [
+                    "{\"Position\":1,\"Value\":\"1200000.00\"}",
+                    "{\"Position\":2,\"Value\":\"360000.00\"}",
+                    "{\"Position\":3,\"Value\":\"180000.00\"}",
+                    "{\"Position\":4,\"Value\":\"90000.00\"}",
+                    "{\"Position\":5,\"Value\":\"50000.00\"}",
+                    "{\"Position\":6,\"Value\":\"40000.00\"}",
+                    "{\"Position\":7,\"Value\":\"40000.00\"}",
+                    "{\"Position\":8,\"Value\":\"40000.00\"}"
+                ],
+                "totalPrizeMoney": "2000000.00",
+                "hasSectionals": true,
+                "hasTips": false,
+                "hasSpeedMap": false,
+                "hasResults": true,
+                "hasStewards": true,
+                "hasHistory": false,
+                "hasField": false,
+                "hasFullForm": false,
+                "trackCode": "149",
+                "rdcClass": "Group 1",
+                "formRaceEntries": [
+                    {
+                        "horseName": "Baraqiel",
+                        "position": 109,
+                        "winningTime": null,
+                        "standardTimeDifference": "-2.28L"
+                    },
+                    {
+                        "horseName": "Tentyris",
+                        "position": 5,
+                        "winningTime": "6897",
+                        "standardTimeDifference": "-2.28L"
+                    },
+                    {
+                        "horseName": "War Machine",
+                        "position": 11,
+                        "winningTime": "6897",
+                        "standardTimeDifference": "-2.28L"
+                    },
+                    {
+                        "horseName": "Angel Capital",
+                        "position": 3,
+                        "winningTime": "6897",
+                        "standardTimeDifference": "-2.28L"
+                    },
+                    {
+                        "horseName": "Sepals",
+                        "position": 4,
+                        "winningTime": "6897",
+                        "standardTimeDifference": "-2.28L"
+                    },
+                    {
+                        "horseName": "Caballus",
+                        "position": 1,
+                        "winningTime": "6897",
+                        "standardTimeDifference": "-2.28L"
+                    },
+                    {
+                        "horseName": "Benedetta",
+                        "position": 6,
+                        "winningTime": "6897",
+                        "standardTimeDifference": "-2.28L"
+                    },
+                    {
+                        "horseName": "De Bergerac",
+                        "position": 9,
+                        "winningTime": "6897",
+                        "standardTimeDifference": "-2.28L"
+                    },
+                    {
+                        "horseName": "Disneck",
+                        "position": 13,
+                        "winningTime": "6897",
+                        "standardTimeDifference": "-2.28L"
+                    },
+                    {
+                        "horseName": "Gallant Son",
+                        "position": 2,
+                        "winningTime": "6897",
+                        "standardTimeDifference": "-2.28L"
+                    },
+                    {
+                        "horseName": "Geegees Mistruth",
+                        "position": 7,
+                        "winningTime": "6897",
+                        "standardTimeDifference": "-2.28L"
+                    },
+                    {
+                        "horseName": "Sghirripa",
+                        "position": 14,
+                        "winningTime": "6897",
+                        "standardTimeDifference": "-2.28L"
+                    },
+                    {
+                        "horseName": "My Gladiola",
+                        "position": 10,
+                        "winningTime": "6897",
+                        "standardTimeDifference": "-2.28L"
+                    },
+                    {
+                        "horseName": "Wodeton",
+                        "position": 11,
+                        "winningTime": "6897",
+                        "standardTimeDifference": "-2.28L"
+                    },
+                    {
+                        "horseName": "Pallaton",
+                        "position": 8,
+                        "winningTime": "6897",
+                        "standardTimeDifference": "-2.28L"
+                    }
+                ],
+                "toEightHundredMetresSeconds": 2495,
+                "standardTimeTo800Difference": "-4.44L",
+                "eightHundredToFourHundredMetresSeconds": 2148,
+                "standardTime800To400Difference": "+0.24L",
+                "fourHundredToFinishMetresSeconds": 2254,
+                "standardTime400ToFinishDifference": "+1.92L",
+                "raceTime": "1:08.97",
+                "standardTimeDifference": "-2.28L",
+                "standardTimeId": "149_Good_1200_Group 1",
+                "stewardsReportUrl": "https://cdn.rmdprod.racing.com/RV/stewards/2026-03-07/flemington/stewardsreports/race-9.htm"
+            },
+            {
+                "id": "5435937",
+                "meet": {
+                    "venue": "Flemington",
+                    "meetUrl": "https://www.racing.com/form/2026-03-07/flemington",
+                    "meetUrlSegment": "2026-03-07/flemington",
+                    "trackMap": "https://s3-ap-southeast-2.amazonaws.com/racevic.static/trackmaps/FLEM.svg"
+                },
+                "raceNumber": 4,
+                "raceStatus": "Paying",
+                "distance": "1400m",
+                "time": "2026-03-07T02:55:00.000Z",
+                "name": "Kirin Ichiban Shaftesbury Avenue Handicap",
+                "nameForm": "SHAFTESBURY AVE",
+                "trackCondition": "Good",
+                "isTrial": 0,
+                "isJumpOut": 0,
+                "trackRating": "4",
+                "trackRecordTime": "8060",
+                "trackRecordHorseCode": "277449",
+                "trackRecordHorseName": "Lovey",
+                "trackRecordRace": {
+                    "date": null
+                },
+                "condition": "Handicap. Group 3. No age restriction, No sex restriction. No class restriction. Apprentices cannot claim. Track name: Main. Track type: Turf. Field limit: 16.",
+                "prizeMoney": [
+                    "{\"Position\":1,\"Value\":\"120000.00\"}",
+                    "{\"Position\":2,\"Value\":\"36000.00\"}",
+                    "{\"Position\":3,\"Value\":\"18000.00\"}",
+                    "{\"Position\":4,\"Value\":\"9000.00\"}",
+                    "{\"Position\":5,\"Value\":\"5000.00\"}",
+                    "{\"Position\":6,\"Value\":\"4000.00\"}",
+                    "{\"Position\":7,\"Value\":\"4000.00\"}",
+                    "{\"Position\":8,\"Value\":\"4000.00\"}"
+                ],
+                "totalPrizeMoney": "200000.00",
+                "hasSectionals": true,
+                "hasTips": false,
+                "hasSpeedMap": false,
+                "hasResults": true,
+                "hasStewards": true,
+                "hasHistory": false,
+                "hasField": false,
+                "hasFullForm": false,
+                "trackCode": "149",
+                "rdcClass": "Group 3",
+                "formRaceEntries": [
+                    {
+                        "horseName": "Here to Shock",
+                        "position": 2,
+                        "winningTime": "8126",
+                        "standardTimeDifference": "+7.2L"
+                    },
+                    {
+                        "horseName": "Cafe Millenium",
+                        "position": 5,
+                        "winningTime": "8126",
+                        "standardTimeDifference": "+7.2L"
+                    },
+                    {
+                        "horseName": "Persian Spirit",
+                        "position": 4,
+                        "winningTime": "8126",
+                        "standardTimeDifference": "+7.2L"
+                    },
+                    {
+                        "horseName": "On Display",
+                        "position": 3,
+                        "winningTime": "8126",
+                        "standardTimeDifference": "+7.2L"
+                    },
+                    {
+                        "horseName": "Precious Charm",
+                        "position": 8,
+                        "winningTime": "8126",
+                        "standardTimeDifference": "+7.2L"
+                    },
+                    {
+                        "horseName": "Pounding",
+                        "position": 7,
+                        "winningTime": "8126",
+                        "standardTimeDifference": "+7.2L"
+                    },
+                    {
+                        "horseName": "Welcometotheshow",
+                        "position": 9,
+                        "winningTime": "8126",
+                        "standardTimeDifference": "+7.2L"
+                    },
+                    {
+                        "horseName": "Wonder Boy",
+                        "position": 6,
+                        "winningTime": "8126",
+                        "standardTimeDifference": "+7.2L"
+                    },
+                    {
+                        "horseName": "Scheelite",
+                        "position": 1,
+                        "winningTime": "8126",
+                        "standardTimeDifference": "+7.2L"
+                    }
+                ],
+                "toEightHundredMetresSeconds": 3651,
+                "standardTimeTo800Difference": "+0.48L",
+                "eightHundredToFourHundredMetresSeconds": 2210,
+                "standardTime800To400Difference": "+4.56L",
+                "fourHundredToFinishMetresSeconds": 2265,
+                "standardTime400ToFinishDifference": "+2.16L",
+                "raceTime": "1:21.26",
+                "standardTimeDifference": "+7.2L",
+                "standardTimeId": "149_Good_1400_Group 3",
+                "stewardsReportUrl": "https://cdn.rmdprod.racing.com/RV/stewards/2026-03-07/flemington/stewardsreports/race-4.htm"
+            },
+            {
+                "id": "5435938",
+                "meet": {
+                    "venue": "Flemington",
+                    "meetUrl": "https://www.racing.com/form/2026-03-07/flemington",
+                    "meetUrlSegment": "2026-03-07/flemington",
+                    "trackMap": "https://s3-ap-southeast-2.amazonaws.com/racevic.static/trackmaps/FLEM.svg"
+                },
+                "raceNumber": 10,
+                "raceStatus": "Paying",
+                "distance": "2000m",
+                "time": "2026-03-07T06:35:00.000Z",
+                "name": "TAB Australian Cup Prelude",
+                "nameForm": "AUS CUP PRE",
+                "trackCondition": "Good",
+                "isTrial": 0,
+                "isJumpOut": 0,
+                "trackRating": "3",
+                "trackRecordTime": "11873",
+                "trackRecordHorseCode": "611244",
+                "trackRecordHorseName": "Makybe Diva (GB)",
+                "trackRecordRace": {
+                    "date": "2005-03-12"
+                },
+                "condition": "Set Weights plus Penalties. Three-Years-Old and Upwards, No sex restriction. No class restriction. Apprentices cannot claim. Track name: Main. Track type: Turf. Field limit: 16.",
+                "prizeMoney": [
+                    "{\"Position\":1,\"Value\":\"82500.00\"}",
+                    "{\"Position\":2,\"Value\":\"27000.00\"}",
+                    "{\"Position\":3,\"Value\":\"13500.00\"}",
+                    "{\"Position\":4,\"Value\":\"7500.00\"}",
+                    "{\"Position\":5,\"Value\":\"4500.00\"}",
+                    "{\"Position\":6,\"Value\":\"3000.00\"}",
+                    "{\"Position\":7,\"Value\":\"3000.00\"}",
+                    "{\"Position\":8,\"Value\":\"3000.00\"}",
+                    "{\"Position\":9,\"Value\":\"3000.00\"}",
+                    "{\"Position\":10,\"Value\":\"3000.00\"}"
+                ],
+                "totalPrizeMoney": "150000.00",
+                "hasSectionals": true,
+                "hasTips": false,
+                "hasSpeedMap": false,
+                "hasResults": true,
+                "hasStewards": true,
+                "hasHistory": false,
+                "hasField": false,
+                "hasFullForm": false,
+                "trackCode": "149",
+                "rdcClass": "Open",
+                "formRaceEntries": [
+                    {
+                        "horseName": "Augustus",
+                        "position": 8,
+                        "winningTime": "12011",
+                        "standardTimeDifference": "+14.76L"
+                    },
+                    {
+                        "horseName": "Whisky On The Hill",
+                        "position": 6,
+                        "winningTime": "12011",
+                        "standardTimeDifference": "+14.76L"
+                    },
+                    {
+                        "horseName": "Magnaspin",
+                        "position": 5,
+                        "winningTime": "12011",
+                        "standardTimeDifference": "+14.76L"
+                    },
+                    {
+                        "horseName": "Immediacy",
+                        "position": 7,
+                        "winningTime": "12011",
+                        "standardTimeDifference": "+14.76L"
+                    },
+                    {
+                        "horseName": "Desert Hero",
+                        "position": 4,
+                        "winningTime": "12011",
+                        "standardTimeDifference": "+14.76L"
+                    },
+                    {
+                        "horseName": "Point King",
+                        "position": 9,
+                        "winningTime": "12011",
+                        "standardTimeDifference": "+14.76L"
+                    },
+                    {
+                        "horseName": "Saganti",
+                        "position": 109,
+                        "winningTime": null,
+                        "standardTimeDifference": "+14.76L"
+                    },
+                    {
+                        "horseName": "Litzdeel",
+                        "position": 2,
+                        "winningTime": "12011",
+                        "standardTimeDifference": "+14.76L"
+                    },
+                    {
+                        "horseName": "Jenni's Meadow",
+                        "position": 3,
+                        "winningTime": "12011",
+                        "standardTimeDifference": "+14.76L"
+                    },
+                    {
+                        "horseName": "Tarvue",
+                        "position": 109,
+                        "winningTime": null,
+                        "standardTimeDifference": "+14.76L"
+                    },
+                    {
+                        "horseName": "Arcora",
+                        "position": 1,
+                        "winningTime": "12011",
+                        "standardTimeDifference": "+14.76L"
+                    }
+                ],
+                "toEightHundredMetresSeconds": 7258,
+                "standardTimeTo800Difference": "+18L",
+                "eightHundredToFourHundredMetresSeconds": 2281,
+                "standardTime800To400Difference": "+3.9L",
+                "fourHundredToFinishMetresSeconds": 2472,
+                "standardTime400ToFinishDifference": "-7.08L",
+                "raceTime": "2:00.11",
+                "standardTimeDifference": "+14.76L",
+                "standardTimeId": "149_Good_2000_Open",
+                "stewardsReportUrl": "https://cdn.rmdprod.racing.com/RV/stewards/2026-03-07/flemington/stewardsreports/race-10.htm"
+            },
+            {
+                "id": "5435939",
+                "meet": {
+                    "venue": "Flemington",
+                    "meetUrl": "https://www.racing.com/form/2026-03-07/flemington",
+                    "meetUrlSegment": "2026-03-07/flemington",
+                    "trackMap": "https://s3-ap-southeast-2.amazonaws.com/racevic.static/trackmaps/FLEM.svg"
+                },
+                "raceNumber": 8,
+                "raceStatus": "Paying",
+                "distance": "1600m",
+                "time": "2026-03-07T05:15:00.000Z",
+                "name": "De Bortoli Wines Matron Stakes",
+                "nameForm": "MATRON STKS",
+                "trackCondition": "Good",
+                "isTrial": 0,
+                "isJumpOut": 0,
+                "trackRating": "3",
+                "trackRecordTime": "9349",
+                "trackRecordHorseCode": "418103",
+                "trackRecordHorseName": "Scenic Peak",
+                "trackRecordRace": {
+                    "date": "2002-11-09"
+                },
+                "condition": "Set Weights plus Penalties. Group 3. Four-Years-Old and Upwards, Mares. No class restriction. Apprentices cannot claim. Track name: Main. Track type: Turf. Field limit: 16.",
+                "prizeMoney": [
+                    "{\"Position\":1,\"Value\":\"120000.00\"}",
+                    "{\"Position\":2,\"Value\":\"36000.00\"}",
+                    "{\"Position\":3,\"Value\":\"18000.00\"}",
+                    "{\"Position\":4,\"Value\":\"9000.00\"}",
+                    "{\"Position\":5,\"Value\":\"5000.00\"}",
+                    "{\"Position\":6,\"Value\":\"4000.00\"}",
+                    "{\"Position\":7,\"Value\":\"4000.00\"}",
+                    "{\"Position\":8,\"Value\":\"4000.00\"}"
+                ],
+                "totalPrizeMoney": "200000.00",
+                "hasSectionals": true,
+                "hasTips": false,
+                "hasSpeedMap": false,
+                "hasResults": true,
+                "hasStewards": true,
+                "hasHistory": false,
+                "hasField": false,
+                "hasFullForm": false,
+                "trackCode": "149",
+                "rdcClass": "Group 3",
+                "formRaceEntries": [
+                    {
+                        "horseName": "Benagil",
+                        "position": 6,
+                        "winningTime": "9553",
+                        "standardTimeDifference": "+0.42L"
+                    },
+                    {
+                        "horseName": "Machine Gun Gracie",
+                        "position": 9,
+                        "winningTime": "9553",
+                        "standardTimeDifference": "+0.42L"
+                    },
+                    {
+                        "horseName": "Philia",
+                        "position": 4,
+                        "winningTime": "9553",
+                        "standardTimeDifference": "+0.42L"
+                    },
+                    {
+                        "horseName": "Jennilala",
+                        "position": 8,
+                        "winningTime": "9553",
+                        "standardTimeDifference": "+0.42L"
+                    },
+                    {
+                        "horseName": "Damask Rose",
+                        "position": 2,
+                        "winningTime": "9553",
+                        "standardTimeDifference": "+0.42L"
+                    },
+                    {
+                        "horseName": "Too Darn Discreet",
+                        "position": 5,
+                        "winningTime": "9553",
+                        "standardTimeDifference": "+0.42L"
+                    },
+                    {
+                        "horseName": "Miss Aria",
+                        "position": 109,
+                        "winningTime": null,
+                        "standardTimeDifference": "+0.42L"
+                    },
+                    {
+                        "horseName": "Sea What I See",
+                        "position": 3,
+                        "winningTime": "9553",
+                        "standardTimeDifference": "+0.42L"
+                    },
+                    {
+                        "horseName": "Until Valhalla",
+                        "position": 10,
+                        "winningTime": "9553",
+                        "standardTimeDifference": "+0.42L"
+                    },
+                    {
+                        "horseName": "Miss Tarzy",
+                        "position": 11,
+                        "winningTime": "9553",
+                        "standardTimeDifference": "+0.42L"
+                    },
+                    {
+                        "horseName": "Ahha Ahha",
+                        "position": 1,
+                        "winningTime": "9553",
+                        "standardTimeDifference": "+0.42L"
+                    },
+                    {
+                        "horseName": "Butternut Princess",
+                        "position": 7,
+                        "winningTime": "9553",
+                        "standardTimeDifference": "+0.42L"
+                    }
+                ],
+                "toEightHundredMetresSeconds": 4959,
+                "standardTimeTo800Difference": "-1.8L",
+                "eightHundredToFourHundredMetresSeconds": 2308,
+                "standardTime800To400Difference": "+0.3L",
+                "fourHundredToFinishMetresSeconds": 2286,
+                "standardTime400ToFinishDifference": "+1.92L",
+                "raceTime": "1:35.53",
+                "standardTimeDifference": "+0.42L",
+                "standardTimeId": "149_Good_1600_Group 3",
+                "stewardsReportUrl": "https://cdn.rmdprod.racing.com/RV/stewards/2026-03-07/flemington/stewardsreports/race-8.htm"
+            }
+        ]
+    }
+}
