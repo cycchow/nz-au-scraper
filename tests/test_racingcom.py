@@ -13,6 +13,14 @@ def test_provider_registered():
     assert provider.default_country == "AUS"
 
 
+def test_racingcom_provider_extracts_meet_code_from_meeting_id():
+    provider = RacingComProvider()
+    assert provider._extract_meet_code({"race_meet_id": 5191184}) == 5191184
+    assert provider._extract_meet_code({"meetingId": 705191184}) == 5191184
+    assert provider._extract_meet_code({"meetingId": 5191184}) == 5191184
+    assert provider._extract_meet_code({}) is None
+
+
 def test_iter_month_starts_desc_inclusive():
     months = racingcom.iter_month_starts(date(2026, 3, 1), date(2025, 12, 1))
     assert [m.isoformat() for m in months] == ["2026-03-01", "2026-02-01", "2026-01-01", "2025-12-01"]
@@ -264,11 +272,28 @@ def test_transform_calendar_item_mapping():
     assert out is not None
     assert out["raceDate"].isoformat() == "2026-03-18"
     assert out["course"] == "Flemington"
-    assert out["meetingId"] == 700012345
+    assert out["meetingId"] == 12345
     assert out["year"] == 2026
     assert out["meta"]["requestYear"] == 2026
     assert out["meta"]["requestMonth"] == 3
     assert out["meta"]["race_meet_id"] == 12345
+
+
+def test_transform_calendar_item_uses_state_local_date():
+    raw_item = {
+        "id": "event-2",
+        "name": "Grafton Races",
+        "race_meet_id": 54321,
+        "location_name": "Grafton",
+        "club_name": "GTC",
+        "state": "NSW",
+        "event_start_time": "2026-03-14T23:10:00Z",
+    }
+
+    out = racingcom.transform_calendar_item(raw_item, 2026, 3)
+
+    assert out is not None
+    assert out["raceDate"].isoformat() == "2026-03-15"
 
 
 def test_provider_fetch_fixtures_iterates_months(monkeypatch):
@@ -305,8 +330,8 @@ def test_provider_fetch_fixtures_iterates_months(monkeypatch):
 
     assert call_months == [(2026, 3), (2026, 2), (2026, 1)]
     assert len(fixtures) == 3
-    assert fixtures[0]["meetingId"] == 700001003
-    assert fixtures[-1]["meetingId"] == 700001001
+    assert fixtures[0]["meetingId"] == 1003
+    assert fixtures[-1]["meetingId"] == 1001
 
 
 def test_fetch_races_for_meet_falls_back_to_race_details_host():
@@ -387,6 +412,35 @@ def test_transform_race_items_maps_sample_response():
     assert race["startTimeZoned"].isoformat() == "2026-03-07T15:05:00+11:00"
     assert race["meta"]["race_meet_id"] == 5191184
     assert race["meta"]["race"]["id"] == "5435930"
+
+
+def test_transform_race_items_use_state_local_start_time():
+    races = racingcom.transform_race_items(
+        [
+            {
+                "id": "5449999",
+                "raceNumber": 7,
+                "distance": "1200m",
+                "totalPrizeMoney": "50000",
+                "trackCondition": "Good",
+                "trackRating": "4",
+                "rdcClass": "BM 68",
+                "condition": "Track type: Turf.",
+                "time": "2026-03-14T23:10:00Z",
+                "meet": {"venue": "Grafton", "state": "NSW"},
+            }
+        ],
+        {
+            "raceDate": "2026-03-15",
+            "course": "Grafton",
+            "meetingId": 705199999,
+            "race_meet_id": 5199999,
+            "meta": {"state": "NSW"},
+        },
+    )
+
+    assert races[0]["startTime"].isoformat() == "2026-03-15T10:10:00"
+    assert races[0]["startTimeZoned"].isoformat() == "2026-03-15T10:10:00+11:00"
 
 
 def test_transform_race_form_results_maps_sample_response():

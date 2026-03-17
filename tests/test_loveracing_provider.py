@@ -208,3 +208,68 @@ def test_process_fixture_record_persists_enriched_fixture_meta(monkeypatch):
     assert saved_fixtures[0]["meta"]["ResultDownloadXML"] == "Race_54915.xml"
     assert saved_races == [{"raceId": 1}]
     assert saved_results == [{"raceId": 1, "horseNo": 2}]
+
+
+def test_parse_race_results_reuses_cached_meeting_xml(monkeypatch):
+    provider = LoveracingProvider()
+    race = {
+        "raceId": 600001,
+        "raceDate": "2026-03-06",
+        "course": "Ellerslie",
+        "meta": {
+            "meetingId": 54915,
+            "ResultDownloadXML": "Race_54915.xml",
+            "meeting": {"id": 54915},
+        },
+    }
+
+    calls = {"xml": 0, "parse_xml": 0}
+
+    def fake_fetch_xml(day_id: int, filename: str):
+        calls["xml"] += 1
+        assert day_id == 54915
+        assert filename == "Race_54915.xml"
+        return "<meeting></meeting>"
+
+    def fake_parse_xml(xml_text: str, fixture_ctx: dict, sectional_fetcher=None):
+        calls["parse_xml"] += 1
+        return (
+            [{"raceId": 600001}, {"raceId": 600002}],
+            [
+                {"raceId": 600001, "horseNo": 1},
+                {"raceId": 600002, "horseNo": 2},
+            ],
+        )
+
+    monkeypatch.setattr(loveracing, "fetch_meeting_xml", fake_fetch_xml)
+    monkeypatch.setattr(loveracing, "parse_meeting_xml", fake_parse_xml)
+
+    result_one = provider.parse_race_results(race)
+    result_two = provider.parse_race_results({**race, "raceId": 600002})
+
+    assert calls == {"xml": 1, "parse_xml": 2}
+    assert result_one == [{"raceId": 600001, "horseNo": 1}]
+    assert result_two == [{"raceId": 600002, "horseNo": 2}]
+
+
+def test_loverall_provider_xml_cache_expires(monkeypatch):
+    provider = LoveracingProvider(xml_cache_ttl_seconds=10)
+    timestamps = iter([100.0, 105.0, 111.0])
+    calls = {"xml": 0}
+
+    monkeypatch.setattr("scrapers.loveracing_provider.time.time", lambda: next(timestamps))
+
+    def fake_fetch_xml(day_id: int, filename: str):
+        calls["xml"] += 1
+        return f"<meeting>{calls['xml']}</meeting>"
+
+    monkeypatch.setattr(loveracing, "fetch_meeting_xml", fake_fetch_xml)
+
+    first = provider._get_cached_meeting_xml(54915, "Race_54915.xml")
+    second = provider._get_cached_meeting_xml(54915, "Race_54915.xml")
+    third = provider._get_cached_meeting_xml(54915, "Race_54915.xml")
+
+    assert first == "<meeting>1</meeting>"
+    assert second == "<meeting>1</meeting>"
+    assert third == "<meeting>2</meeting>"
+    assert calls["xml"] == 2

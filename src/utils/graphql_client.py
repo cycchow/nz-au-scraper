@@ -27,7 +27,13 @@ async def graphql_subscribe(subscription_str, variables=None):
 def dict_to_graphql_input(data):
     def convert(value):
         if isinstance(value, str):
-            escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+            escaped = (
+                value.replace("\\", "\\\\")
+                .replace('"', '\\"')
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t")
+            )
             return f'"{escaped}"'
         if value is None:
             return "null"

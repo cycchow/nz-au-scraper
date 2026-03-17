@@ -65,9 +65,36 @@ def get_provider_for_fixture(fixture: dict[str, Any]) -> ScraperProvider | None:
     return provider
 
 
+def get_provider_for_race(race: dict[str, Any]) -> ScraperProvider | None:
+    for provider in PROVIDERS.values():
+        try:
+            if provider.accepts_race(race):
+                return provider
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Provider accepts_race failed provider=%s raceId=%s: %s", provider.name, race.get("raceId"), exc)
+    meta = race.get("meta")
+    if isinstance(meta, dict):
+        meta_summary = f"dict_keys={sorted(meta.keys())}"
+    elif isinstance(meta, str):
+        meta_summary = f"str={meta[:300]!r}"
+    else:
+        meta_summary = f"type={type(meta).__name__} value={meta!r}"
+    logger.warning(
+        "Skipping race with no matching provider raceId=%s raceDate=%s course=%s country=%r meta=%s",
+        race.get("raceId"),
+        race.get("raceDate"),
+        race.get("course"),
+        race.get("country"),
+        meta_summary,
+    )
+    return None
+
+
 def fixture_id_base_for_country(country: str) -> int:
     if country == "NZ":
         return 6000000000
+    if country == "AUS":
+        return 7000000000
     if country == "KSA":
         return 9000000000
     return 8000000000
@@ -151,6 +178,13 @@ def save_races(races: list[dict[str, Any]]):
     for race in races:
         payload = json.loads(json.dumps(race, default=json_compatible_default))
         try:
+            logger.info(
+                "Merging race raceDate=%s course=%s raceNo=%s raceId=%s",
+                payload.get("raceDate"),
+                payload.get("course"),
+                payload.get("raceNo"),
+                payload.get("raceId"),
+            )
             send_merge_mutation("com.superstring.globalracing.uk.models.types.Races", payload)
         except Exception as exc:  # noqa: BLE001
             logger.error("Failed race merge raceId=%s raceNo=%s: %s", payload.get("raceId"), payload.get("raceNo"), exc)
@@ -240,8 +274,8 @@ def run_fixture_ingestion(provider: ScraperProvider, from_month: date, to_month:
 
 def build_get_fixtures_subscription() -> str:
     return """
-    subscription getFixtures($from: Date!, $to: Date!, $fetchAll: Boolean, $country: String) {
-      getFixtures(from: $from, to: $to, fetchAll: $fetchAll, country: $country) {
+    subscription getFixtures($from: Date!, $to: Date!, $fetchAll: Boolean, $country: String, $course: String) {
+      getFixtures(from: $from, to: $to, fetchAll: $fetchAll, country: $country, course: $course) {
         fixtureId
         fixtureYear
         raceDate
@@ -254,17 +288,38 @@ def build_get_fixtures_subscription() -> str:
     """
 
 
+def build_get_races_subscription() -> str:
+    return """
+    subscription getRaces($from: Date!, $to: Date!, $fetchAll: Boolean, $country: String, $course: String) {
+      getRaces(from: $from, to: $to, fetchAll: $fetchAll, country: $country, course: $course) {
+        raceDate
+        course
+        raceNo
+        startTime
+        startTimeZoned
+        raceId
+        div
+        country
+        meta
+      }
+    }
+    """
+
+
 async def get_fixtures_from_graphql(
     from_date: date,
     to_date: date,
     country: str = "NZ",
+    fetch_all: bool = False,
+    course: str | None = None,
 ) -> list[dict[str, Any]]:
     subscription = build_get_fixtures_subscription()
     variables = {
         "from": from_date.isoformat(),
         "to": to_date.isoformat(),
-        "fetchAll": True,
+        "fetchAll": fetch_all,
         "country": country,
+        "course": course,
     }
 
     fixtures: list[dict[str, Any]] = []
@@ -274,6 +329,94 @@ async def get_fixtures_from_graphql(
             fixtures.append(item)
 
     return fixtures
+
+
+async def get_races_from_graphql(
+    from_date: date,
+    to_date: date,
+    country: str = "NZ",
+    fetch_all: bool = False,
+    course: str | None = None,
+) -> list[dict[str, Any]]:
+    subscription = build_get_races_subscription()
+    variables = {
+        "from": from_date.isoformat(),
+        "to": to_date.isoformat(),
+        "fetchAll": fetch_all,
+        "country": country,
+        "course": course,
+    }
+
+    races: list[dict[str, Any]] = []
+    async for data in graphql_subscribe(subscription, variables):
+        item = data.get("getRaces")
+        if item:
+            races.append(item)
+
+    return races
+
+
+def process_fixture_for_races_record(provider: ScraperProvider, fixture: dict[str, Any]):
+    if not provider.accepts_fixture(fixture):
+        logger.debug("Skipping fixture not accepted by provider=%s fixtureId=%s", provider.name, fixture.get("fixtureId"))
+        return
+
+    meta_before = json.dumps(fixture.get("meta", {}), sort_keys=True, default=str)
+    try:
+        races = provider.parse_fixture_races(fixture)
+    except Exception as exc:  # noqa: BLE001
+        logger.error(
+            "Failed race parse source=%s fixtureId=%s: %s",
+            provider.name,
+            fixture.get("fixtureId"),
+            exc,
+        )
+        return
+
+    meta_after = json.dumps(fixture.get("meta", {}), sort_keys=True, default=str)
+    if meta_after != meta_before:
+        save_fixtures([fixture], country=fixture.get("country") or provider.default_country, provider=provider)
+
+    logger.info(
+        "Parsed fixture races source=%s fixtureId=%s raceDate=%s course=%s races=%s",
+        provider.name,
+        fixture.get("fixtureId"),
+        fixture.get("raceDate"),
+        fixture.get("course"),
+        len(races),
+    )
+    save_races(races)
+
+
+def process_race_for_results_record(provider: ScraperProvider, race: dict[str, Any]):
+    if not provider.accepts_race(race):
+        logger.debug("Skipping race not accepted by provider=%s raceId=%s", provider.name, race.get("raceId"))
+        return
+
+    try:
+        results = provider.parse_race_results(race)
+    except Exception as exc:  # noqa: BLE001
+        logger.error(
+            "Failed result parse source=%s raceDate=%s course=%s raceNo=%s raceId=%s: %s",
+            provider.name,
+            race.get("raceDate"),
+            race.get("course"),
+            race.get("raceNo"),
+            race.get("raceId"),
+            exc,
+        )
+        return
+
+    logger.info(
+        "Parsed race results source=%s raceDate=%s course=%s raceNo=%s raceId=%s results=%s",
+        provider.name,
+        race.get("raceDate"),
+        race.get("course"),
+        race.get("raceNo"),
+        race.get("raceId"),
+        len(results),
+    )
+    save_results(results)
 
 
 def process_fixture_record(provider: ScraperProvider, fixture: dict[str, Any]):
@@ -308,14 +451,23 @@ def process_fixture_record(provider: ScraperProvider, fixture: dict[str, Any]):
     save_results(parsed.results)
 
 
-async def process_fixtures_from_graphql(
+async def process_fixtures_for_races_from_graphql(
     from_date: date,
     to_date: date,
     country: str,
     source_filter: str | None = None,
+    fetch_all: bool = False,
+    course: str | None = None,
 ):
-    fixtures = await get_fixtures_from_graphql(from_date, to_date, country)
-    logger.info("Fetched fixtures from graphql count=%s country=%s sourceFilter=%s", len(fixtures), country, source_filter)
+    fixtures = await get_fixtures_from_graphql(from_date, to_date, country, fetch_all=fetch_all, course=course)
+    logger.info(
+        "Fetched fixtures from graphql count=%s country=%s course=%s sourceFilter=%s fetchAll=%s",
+        len(fixtures),
+        country,
+        course,
+        source_filter,
+        fetch_all,
+    )
 
     for fixture in fixtures:
         fixture_src = fixture.get("src")
@@ -325,7 +477,55 @@ async def process_fixtures_from_graphql(
         provider = get_provider_for_fixture(fixture)
         if provider is None:
             continue
-        process_fixture_record(provider, fixture)
+        process_fixture_for_races_record(provider, fixture)
+
+
+async def process_races_for_results_from_graphql(
+    from_date: date,
+    to_date: date,
+    country: str,
+    source_filter: str | None = None,
+    fetch_all: bool = False,
+    course: str | None = None,
+):
+    races = await get_races_from_graphql(from_date, to_date, country, fetch_all=fetch_all, course=course)
+    fixtures = await get_fixtures_from_graphql(from_date, to_date, country, fetch_all=True, course=course)
+    fixture_lookup = {
+        (
+            str(item.get("raceDate") or ""),
+            str(item.get("course") or ""),
+            str(item.get("country") or country or ""),
+        ): item
+        for item in fixtures
+    }
+    logger.info(
+        "Fetched races from graphql count=%s country=%s course=%s sourceFilter=%s fetchAll=%s fixtureContextCount=%s",
+        len(races),
+        country,
+        course,
+        source_filter,
+        fetch_all,
+        len(fixtures),
+    )
+
+    for race in races:
+        if race.get("meta") in (None, "", {}):
+            fixture_key = (
+                str(race.get("raceDate") or ""),
+                str(race.get("course") or ""),
+                str(race.get("country") or country or ""),
+            )
+            fixture = fixture_lookup.get(fixture_key)
+            if fixture is not None:
+                race = dict(race)
+                race["meta"] = fixture.get("meta")
+
+        provider = get_provider_for_race(race)
+        if provider is None:
+            continue
+        if source_filter and provider.source_code != source_filter:
+            continue
+        process_race_for_results_record(provider, race)
 
 
 def main(argv=None):
@@ -339,7 +539,9 @@ def main(argv=None):
     parser.add_argument("--from", dest="from_month", type=parse_date_or_month_arg, default=today_month)
     parser.add_argument("--to", dest="to_month", type=parse_date_or_month_arg, default=date(2023, 1, 1))
     parser.add_argument("--country", default=preview_provider.default_country if preview_provider else "NZ")
+    parser.add_argument("--course")
     parser.add_argument("--mode", choices=["fixtures", "races-results"], default="fixtures")
+    parser.add_argument("--fetch-all", action="store_true")
     args = parser.parse_args(argv)
 
     if args.mode == "fixtures":
@@ -349,12 +551,36 @@ def main(argv=None):
 
     from_date, to_date = date_window(args.from_month, args.to_month)
     logger.info(
-        "Races-results mode sourceFilter=%s date window from=%s to=%s",
+        "Races-results mode sourceFilter=%s fetchAll=%s date window from=%s to=%s",
         args.source,
+        args.fetch_all,
         from_date.isoformat(),
         to_date.isoformat(),
     )
-    asyncio.run(process_fixtures_from_graphql(from_date, to_date, args.country, source_filter=args.source))
+    logger.info("Starting race generation phase")
+    asyncio.run(
+        process_fixtures_for_races_from_graphql(
+            from_date,
+            to_date,
+            args.country,
+            source_filter=args.source,
+            fetch_all=args.fetch_all,
+            course=args.course,
+        )
+    )
+    logger.info("Completed race generation phase")
+    logger.info("Starting result rerun phase")
+    asyncio.run(
+        process_races_for_results_from_graphql(
+            from_date,
+            to_date,
+            args.country,
+            source_filter=args.source,
+            fetch_all=args.fetch_all,
+            course=args.course,
+        )
+    )
+    logger.info("Completed result rerun phase")
 
 
 if __name__ == "__main__":

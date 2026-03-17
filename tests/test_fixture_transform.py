@@ -47,7 +47,7 @@ def test_save_fixtures_uses_top_level_meeting_id(monkeypatch):
             "raceDate": date(2026, 3, 10),
             "course": "Flemington",
             "year": 2026,
-            "meetingId": 700123456,
+            "meetingId": 123456,
             "meta": {"race_meet_id": 123456},
         }
     ]
@@ -57,8 +57,8 @@ def test_save_fixtures_uses_top_level_meeting_id(monkeypatch):
     assert len(captured) == 1
     _, payload = captured[0]
     assert payload["country"] == "AUS"
-    assert payload["meetingId"] == 700123456
-    assert payload["fixtureId"] == 8000000000 + 700123456
+    assert payload["meetingId"] == 123456
+    assert payload["fixtureId"] == 7000000000 + 123456
 
 
 def test_save_fixtures_accepts_graphql_style_fixture(monkeypatch):
@@ -88,7 +88,7 @@ def test_save_fixtures_accepts_graphql_style_fixture(monkeypatch):
     assert payload["meta"]["ResultDownloadXML"] == "Race_54915.xml"
 
 
-def test_get_fixtures_from_graphql_includes_optional_src_filter(monkeypatch):
+def test_get_fixtures_from_graphql_uses_fetch_all_and_course_filters(monkeypatch):
     captured = {}
 
     async def fake_graphql_subscribe(subscription, variables):
@@ -104,16 +104,19 @@ def test_get_fixtures_from_graphql_includes_optional_src_filter(monkeypatch):
             date(2026, 3, 7),
             date(2026, 3, 7),
             country="AUS",
+            fetch_all=False,
+            course="Flemington",
         )
     )
 
-    assert "$src: String" not in captured["subscription"]
-    assert "src: $src" not in captured["subscription"]
+    assert "$course: String" in captured["subscription"]
+    assert "course: $course" in captured["subscription"]
     assert captured["variables"] == {
         "from": "2026-03-07",
         "to": "2026-03-07",
-        "fetchAll": True,
+        "fetchAll": False,
         "country": "AUS",
+        "course": "Flemington",
     }
     assert fixtures == [
         {"fixtureId": 1, "src": "racingcom"},
@@ -127,45 +130,54 @@ def test_get_provider_for_fixture_uses_fixture_src():
     assert main.get_provider_for_fixture({"fixtureId": 3, "src": "unknown"}) is None
 
 
-def test_process_fixtures_from_graphql_routes_by_fixture_src(monkeypatch):
+def test_get_provider_for_race_uses_provider_accepts_race():
+    assert main.get_provider_for_race({"raceId": 1, "country": "AUS", "meta": {"race_meet_id": 5191184}}).name == "racingcom"
+    assert main.get_provider_for_race({"raceId": 11, "country": "AUS", "meta": {"meetingId": 705191184}}).name == "racingcom"
+    assert main.get_provider_for_race({"raceId": 2, "country": "NZ", "meta": {"meetingId": 54910}}).name == "loveracing"
+    assert main.get_provider_for_race({"raceId": 3, "meta": {"unknown": True}}) is None
+    assert main.get_provider_for_race({"raceId": 4, "country": "AUS", "meta": {"meetingId": 54910}}) is None
+
+
+def test_process_fixtures_for_races_from_graphql_routes_by_fixture_src(monkeypatch):
     processed = []
 
-    async def fake_get_fixtures_from_graphql(from_date, to_date, country):
+    async def fake_get_fixtures_from_graphql(from_date, to_date, country, fetch_all=False, course=None):
         assert country == "AUS"
+        assert fetch_all is False
         return [
             {"fixtureId": 1, "src": "racingcom"},
             {"fixtureId": 2, "src": "loveracing"},
             {"fixtureId": 3, "src": "unknown"},
         ]
 
-    def fake_process_fixture_record(provider, fixture):
+    def fake_process_fixture_for_races_record(provider, fixture):
         processed.append((provider.name, fixture["fixtureId"]))
 
     monkeypatch.setattr(main, "get_fixtures_from_graphql", fake_get_fixtures_from_graphql)
-    monkeypatch.setattr(main, "process_fixture_record", fake_process_fixture_record)
+    monkeypatch.setattr(main, "process_fixture_for_races_record", fake_process_fixture_for_races_record)
 
-    asyncio.run(main.process_fixtures_from_graphql(date(2026, 3, 7), date(2026, 3, 7), "AUS"))
+    asyncio.run(main.process_fixtures_for_races_from_graphql(date(2026, 3, 7), date(2026, 3, 7), "AUS"))
 
     assert processed == [("racingcom", 1), ("loveracing", 2)]
 
 
-def test_process_fixtures_from_graphql_applies_optional_source_filter(monkeypatch):
+def test_process_fixtures_for_races_from_graphql_applies_optional_source_filter(monkeypatch):
     processed = []
 
-    async def fake_get_fixtures_from_graphql(from_date, to_date, country):
+    async def fake_get_fixtures_from_graphql(from_date, to_date, country, fetch_all=False, course=None):
         return [
             {"fixtureId": 1, "src": "racingcom"},
             {"fixtureId": 2, "src": "loveracing"},
         ]
 
-    def fake_process_fixture_record(provider, fixture):
+    def fake_process_fixture_for_races_record(provider, fixture):
         processed.append((provider.name, fixture["fixtureId"]))
 
     monkeypatch.setattr(main, "get_fixtures_from_graphql", fake_get_fixtures_from_graphql)
-    monkeypatch.setattr(main, "process_fixture_record", fake_process_fixture_record)
+    monkeypatch.setattr(main, "process_fixture_for_races_record", fake_process_fixture_for_races_record)
 
     asyncio.run(
-        main.process_fixtures_from_graphql(
+        main.process_fixtures_for_races_from_graphql(
             date(2026, 3, 7),
             date(2026, 3, 7),
             "AUS",
@@ -174,6 +186,115 @@ def test_process_fixtures_from_graphql_applies_optional_source_filter(monkeypatc
     )
 
     assert processed == [("racingcom", 1)]
+
+
+def test_get_races_from_graphql_uses_fetch_all_and_course_filters(monkeypatch):
+    captured = {}
+
+    async def fake_graphql_subscribe(subscription, variables):
+        captured["subscription"] = subscription
+        captured["variables"] = variables
+        yield {"getRaces": {"raceId": 1}}
+        yield {"getRaces": {"raceId": 2}}
+
+    monkeypatch.setattr(main, "graphql_subscribe", fake_graphql_subscribe)
+
+    races = asyncio.run(
+        main.get_races_from_graphql(
+            date(2026, 3, 7),
+            date(2026, 3, 7),
+            country="AUS",
+            fetch_all=False,
+            course="Flemington",
+        )
+    )
+
+    assert "subscription getRaces" in captured["subscription"]
+    assert "course: $course" in captured["subscription"]
+    assert captured["variables"] == {
+        "from": "2026-03-07",
+        "to": "2026-03-07",
+        "fetchAll": False,
+        "country": "AUS",
+        "course": "Flemington",
+    }
+    assert races == [{"raceId": 1}, {"raceId": 2}]
+
+
+def test_process_races_for_results_from_graphql_routes_by_race_provider(monkeypatch):
+    processed = []
+
+    async def fake_get_races_from_graphql(from_date, to_date, country, fetch_all=False, course=None):
+        return [
+            {"raceId": 1, "country": "AUS", "meta": {"race_meet_id": 5191184}},
+            {"raceId": 2, "country": "NZ", "meta": {"meetingId": 54910}},
+            {"raceId": 3, "meta": {"unknown": True}},
+        ]
+
+    def fake_process_race_for_results_record(provider, race):
+        processed.append((provider.name, race["raceId"]))
+
+    monkeypatch.setattr(main, "get_races_from_graphql", fake_get_races_from_graphql)
+    monkeypatch.setattr(main, "get_fixtures_from_graphql", lambda *args, **kwargs: asyncio.sleep(0, result=[]))
+    monkeypatch.setattr(main, "process_race_for_results_record", fake_process_race_for_results_record)
+
+    asyncio.run(main.process_races_for_results_from_graphql(date(2026, 3, 7), date(2026, 3, 7), "AUS"))
+
+    assert processed == [("racingcom", 1), ("loveracing", 2)]
+
+
+def test_process_races_for_results_from_graphql_applies_optional_source_filter(monkeypatch):
+    processed = []
+
+    async def fake_get_races_from_graphql(from_date, to_date, country, fetch_all=False, course=None):
+        return [
+            {"raceId": 1, "country": "AUS", "meta": {"race_meet_id": 5191184}},
+            {"raceId": 2, "country": "NZ", "meta": {"meetingId": 54910}},
+        ]
+
+    def fake_process_race_for_results_record(provider, race):
+        processed.append((provider.name, race["raceId"]))
+
+    monkeypatch.setattr(main, "get_races_from_graphql", fake_get_races_from_graphql)
+    monkeypatch.setattr(main, "get_fixtures_from_graphql", lambda *args, **kwargs: asyncio.sleep(0, result=[]))
+    monkeypatch.setattr(main, "process_race_for_results_record", fake_process_race_for_results_record)
+
+    asyncio.run(
+        main.process_races_for_results_from_graphql(
+            date(2026, 3, 7),
+            date(2026, 3, 7),
+            "AUS",
+            source_filter="racingcom",
+        )
+    )
+
+    assert processed == [("racingcom", 1)]
+
+
+def test_process_races_for_results_from_graphql_enriches_missing_race_meta_from_fixture(monkeypatch):
+    processed = []
+
+    async def fake_get_races_from_graphql(from_date, to_date, country, fetch_all=False, course=None):
+        return [
+            {"raceId": 1, "raceDate": "2026-03-16", "course": "Hawkesbury", "country": "AUS", "meta": None},
+        ]
+
+    async def fake_get_fixtures_from_graphql(from_date, to_date, country, fetch_all=False, course=None):
+        assert fetch_all is True
+        return [
+            {"fixtureId": 10, "raceDate": "2026-03-16", "course": "Hawkesbury", "country": "AUS", "src": "racingcom", "meta": {"race_meet_id": 5193255}},
+        ]
+
+    def fake_process_race_for_results_record(provider, race):
+        processed.append((provider.name, race["raceId"], race["meta"]["race_meet_id"]))
+
+    monkeypatch.setattr(main, "get_races_from_graphql", fake_get_races_from_graphql)
+    monkeypatch.setattr(main, "get_fixtures_from_graphql", fake_get_fixtures_from_graphql)
+    monkeypatch.setattr(main, "process_race_for_results_record", fake_process_race_for_results_record)
+
+    asyncio.run(main.process_races_for_results_from_graphql(date(2026, 3, 16), date(2026, 3, 16), "AUS"))
+
+    assert processed == [("racingcom", 1, 5193255)]
 
 
 def test_save_races_serializes_datetime_as_isoformat(monkeypatch):
@@ -209,3 +330,17 @@ def test_save_races_serializes_datetime_as_isoformat(monkeypatch):
             },
         )
     ]
+
+
+def test_dict_to_graphql_input_escapes_newlines_and_quotes():
+    from utils.graphql_client import dict_to_graphql_input
+
+    query_input = dict_to_graphql_input(
+        {
+            "text": "line 1\nline \"2\"",
+            "nested": {"note": "a\r\nb\tc"},
+        }
+    )
+
+    assert 'text: "line 1\\nline \\"2\\""' in query_input
+    assert 'note: "a\\r\\nb\\tc"' in query_input

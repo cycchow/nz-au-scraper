@@ -24,7 +24,18 @@ DEFAULT_GRAPHQL_HOST = "https://graphql.api.racing.com"
 DEFAULT_CALENDAR_API_KEY = "da2-r5s52y73i5c7vi6vxflvfdufsa"
 DEFAULT_RACE_DETAILS_GRAPHQL_HOST = "https://graphql.rmdprod.racing.com/"
 DEFAULT_RACE_DETAILS_API_KEY = "da2-6nsi4ztsynar3l3frgxf77q5fe"
+SECTIONAL_API_TIMEOUT_SECONDS = 600
 AUS_TZ = ZoneInfo("Australia/Melbourne")
+STATE_TIMEZONES: dict[str, ZoneInfo] = {
+    "NSW": ZoneInfo("Australia/Sydney"),
+    "ACT": ZoneInfo("Australia/Sydney"),
+    "VIC": ZoneInfo("Australia/Sydney"),
+    "TAS": ZoneInfo("Australia/Sydney"),
+    "QLD": ZoneInfo("Australia/Brisbane"),
+    "SA": ZoneInfo("Australia/Adelaide"),
+    "WA": ZoneInfo("Australia/Perth"),
+    "NT": ZoneInfo("Australia/Darwin"),
+}
 RACE_ID_BASE_AUS = 700000000
 
 MEET_TYPES = ["Metro", "Provincial", "Country", "Picnic"]
@@ -685,7 +696,11 @@ def parse_numeric_int(value: Any) -> int | None:
     return int(parsed)
 
 
-def parse_start_times(value: Any) -> tuple[datetime | None, datetime | None]:
+def timezone_for_state(state: Any) -> ZoneInfo:
+    return STATE_TIMEZONES.get(str(state or "").upper(), AUS_TZ)
+
+
+def parse_start_times(value: Any, tz: ZoneInfo = AUS_TZ) -> tuple[datetime | None, datetime | None]:
     if not value:
         return None, None
 
@@ -695,8 +710,8 @@ def parse_start_times(value: Any) -> tuple[datetime | None, datetime | None]:
         return None, None
 
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=AUS_TZ)
-    local_dt = parsed.astimezone(AUS_TZ)
+        parsed = parsed.replace(tzinfo=tz)
+    local_dt = parsed.astimezone(tz)
     return local_dt.replace(tzinfo=None), local_dt
 
 
@@ -963,7 +978,7 @@ def extract_sectional_entries(payload: Any) -> list[dict[str, Any]]:
 
 
 def fetch_local_sectionals(endpoint: str, payload: dict[str, Any]) -> list[dict[str, Any]]:
-    resp = requests.post(endpoint, json=payload, timeout=30)
+    resp = requests.post(endpoint, json=payload, timeout=SECTIONAL_API_TIMEOUT_SECONDS)
     resp.raise_for_status()
     return extract_sectional_entries(resp.json())
 
@@ -1099,14 +1114,17 @@ def transform_race_item(item: dict[str, Any], fixture_ctx: dict[str, Any]) -> di
         logger.warning("Skipping race item with invalid identifiers id=%r raceNumber=%r", item.get("id"), item.get("raceNumber"))
         return None
 
+    # Keep the fixture course as the canonical downstream key so getFixtures/getRaces
+    # correlate on the same meeting course/date pair.
     course = normalize_course(
-        item.get("meet", {}).get("venue")
-        or fixture_ctx.get("course")
+        fixture_ctx.get("course")
+        or item.get("meet", {}).get("venue")
     )
     distance = parse_distance_text(item.get("distance"))
     surface = infer_surface(item.get("condition"))
     direction = get_direction(course, str(int(distance)), surface) if course and distance is not None else None
-    start_time, start_time_zoned = parse_start_times(item.get("time"))
+    state = (fixture_ctx.get("meta") or {}).get("state") or item.get("meet", {}).get("state")
+    start_time, start_time_zoned = parse_start_times(item.get("time"), timezone_for_state(state))
     if start_time is None:
         logger.warning("Skipping race item with invalid time id=%s time=%r", race_id_raw, item.get("time"))
         return None
@@ -1164,7 +1182,7 @@ def transform_calendar_item(item: dict[str, Any], request_year: int, request_mon
 
     try:
         normalized_dt = str(event_start_time).replace("Z", "+00:00")
-        race_date = datetime.fromisoformat(normalized_dt).date()
+        event_dt = datetime.fromisoformat(normalized_dt)
     except ValueError:
         logger.warning(
             "Skipping calendar item with invalid event_start_time=%r race_meet_id=%s",
@@ -1172,6 +1190,12 @@ def transform_calendar_item(item: dict[str, Any], request_year: int, request_mon
             race_meet_id,
         )
         return None
+
+    state = item.get("state")
+    event_tz = timezone_for_state(state)
+    if event_dt.tzinfo is None:
+        event_dt = event_dt.replace(tzinfo=event_tz)
+    race_date = event_dt.astimezone(event_tz).date()
 
     course = item.get("location_name") or item.get("club_name") or item.get("name")
     if not course:
@@ -1182,7 +1206,7 @@ def transform_calendar_item(item: dict[str, Any], request_year: int, request_mon
         "course": str(course),
         "raceDate": race_date,
         "year": race_date.year,
-        "meetingId": 700000000 + race_meet_id,
+        "meetingId": race_meet_id,
         "meta": {
             **item,
             "requestYear": int(request_year),

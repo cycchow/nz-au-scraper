@@ -22,6 +22,14 @@ class ScraperProvider(Protocol):
     def accepts_fixture(self, fixture: dict[str, Any]) -> bool:
         """Whether a GraphQL fixture row should be processed by this provider."""
 
+    def accepts_race(self, race: dict[str, Any]) -> bool:
+        """Whether a GraphQL race row should be processed by this provider."""
+
+    def parse_fixture_races(self, fixture: dict[str, Any]) -> list[dict[str, Any]]:
+        """Transform one GraphQL fixture row into Races payloads."""
+
+    def parse_race_results(self, race: dict[str, Any]) -> list[dict[str, Any]]:
+        """Transform one GraphQL race row into Results payloads."""
+
     def parse_fixture(self, fixture: dict[str, Any]) -> FixtureProcessOutput:
         """Transform one GraphQL fixture row into Races + Results payloads."""
-
