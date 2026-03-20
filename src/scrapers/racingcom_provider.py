@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, datetime
 
 import requests
 
@@ -95,15 +95,6 @@ class RacingComProvider:
             logger.warning("Skipping racing.com fixture with invalid raceDate fixtureId=%s", fixture.get("fixtureId"))
             return []
 
-        today_aus = date.today()
-        if fixture_date >= today_aus:
-            logger.info(
-                "Skipping non-past racing.com fixture fixtureId=%s raceDate=%s",
-                fixture.get("fixtureId"),
-                fixture_date.isoformat(),
-            )
-            return []
-
         meta = racingcom.parse_fixture_meta(fixture.get("meta"))
         meet_code = meta.get("race_meet_code") or meta.get("race_meet_id")
         try:
@@ -139,6 +130,55 @@ class RacingComProvider:
                 meet_code=meet_code,
             )
             return racingcom.transform_race_items(race_items, fixture_ctx)
+
+    def parse_fixture_cards(self, fixture: dict, races: list[dict] | None = None) -> list[dict]:
+        fixture_date = racingcom.parse_fixture_date(fixture.get("raceDate"))
+        if fixture_date is None:
+            logger.warning("Skipping racing.com fixture cards with invalid raceDate fixtureId=%s", fixture.get("fixtureId"))
+            return []
+
+        today_aus = datetime.now(racingcom.AUS_TZ).date()
+        if fixture_date < today_aus:
+            return []
+
+        races = races or self.parse_fixture_races(fixture)
+        if not races:
+            return []
+
+        runtime = racingcom.discover_runtime_config()
+        graphql_host = runtime.get("raceDetailsGraphQLHost", racingcom.DEFAULT_RACE_DETAILS_GRAPHQL_HOST)
+        api_key = runtime.get("raceDetailsGraphQLAPIKey", racingcom.DEFAULT_RACE_DETAILS_API_KEY)
+
+        cards: list[dict] = []
+        with requests.Session() as session:
+            for race in races:
+                race_meta = racingcom.parse_fixture_meta(race.get("meta"))
+                meet_code = self._extract_meet_code(race_meta)
+                race_no = racingcom.parse_numeric_int(race.get("raceNo"))
+                if meet_code is None or race_no is None:
+                    continue
+
+                race_form = racingcom.fetch_race_entries(
+                    session,
+                    graphql_host=graphql_host,
+                    api_key=api_key,
+                    meet_code=meet_code,
+                    race_number=race_no,
+                )
+                cards.extend(
+                    racingcom.transform_race_form_cards(
+                        race_form,
+                        race,
+                        {
+                            "raceDate": race.get("raceDate"),
+                            "course": race.get("course"),
+                            "meetingId": race_meta.get("meetingId"),
+                            "race_meet_id": meet_code,
+                            "meta": race_meta,
+                        },
+                    )
+                )
+        return cards
 
     def parse_race_results(self, race: dict) -> list[dict]:
         race_date = racingcom.parse_fixture_date(race.get("raceDate"))
@@ -193,6 +233,15 @@ class RacingComProvider:
             )
             race_item = meta.get("race") if isinstance(meta.get("race"), dict) else {}
             sectionals = racingcom.fetch_sectionals_for_race(race_item, fixture_ctx, api_key)
+            logger.info(
+                "Fetched sectionals source=racingcom meetCode=%s raceDate=%s course=%s raceNo=%s raceId=%s sectionals=%s",
+                meet_code,
+                race_date.isoformat(),
+                race.get("course"),
+                race_no,
+                race.get("raceId"),
+                len(sectionals),
+            )
             return racingcom.transform_race_form_results(
                 race_form,
                 race,

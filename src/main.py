@@ -15,7 +15,13 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 from scrapers import LoveracingProvider, RacingComProvider, ScraperProvider
 from scrapers.base import FixtureProcessOutput
-from utils.graphql_client import graphql_subscribe, send_merge_mutation
+from utils.graphql_client import (
+    dict_to_graphql_input,
+    send_add_results_mutation,
+    graphql_subscribe,
+    send_merge_mutation,
+    send_merge_mutations_batch,
+)
 
 LOG_LEVEL = "INFO"
 LOG_CONFIG = {
@@ -175,52 +181,174 @@ def save_fixtures(fixtures, country="NZ", provider: ScraperProvider | None = Non
 
 
 def save_races(races: list[dict[str, Any]]):
-    for race in races:
-        payload = json.loads(json.dumps(race, default=json_compatible_default))
-        try:
-            logger.info(
-                "Merging race raceDate=%s course=%s raceNo=%s raceId=%s",
-                payload.get("raceDate"),
-                payload.get("course"),
-                payload.get("raceNo"),
-                payload.get("raceId"),
-            )
-            send_merge_mutation("com.superstring.globalracing.uk.models.types.Races", payload)
-        except Exception as exc:  # noqa: BLE001
-            logger.error("Failed race merge raceId=%s raceNo=%s: %s", payload.get("raceId"), payload.get("raceNo"), exc)
+    payloads = [json.loads(json.dumps(race, default=json_compatible_default)) for race in races]
+    _save_records_in_batches("com.superstring.globalracing.uk.models.types.Races", payloads, "race")
 
 
 def save_results(results: list[dict[str, Any]]):
-    for result in results:
-        payload = json.loads(json.dumps(result, default=json_compatible_default))
+    payloads = [json.loads(json.dumps(result, default=json_compatible_default)) for result in results]
+    _save_results_in_batches(payloads)
+
+
+MERGE_BATCH_MAX_BYTES = 128_000
+RACE_MERGE_BATCH_MAX_ITEMS = 8
+RESULTS_ADD_BATCH_MAX_ITEMS = 25
+
+
+def _estimate_merge_payload_size(type_name: str, payload: dict[str, Any]) -> int:
+    input_literal = dict_to_graphql_input(payload)
+    return len(type_name) + len(input_literal) + 64
+
+
+def _batched_merge_chunks(type_name: str, payloads: list[dict[str, Any]], kind: str) -> list[list[dict[str, Any]]]:
+    chunks: list[list[dict[str, Any]]] = []
+    current_chunk: list[dict[str, Any]] = []
+    current_size = 0
+    max_items = RACE_MERGE_BATCH_MAX_ITEMS
+
+    for payload in payloads:
+        payload_size = _estimate_merge_payload_size(type_name, payload)
+        if current_chunk and (
+            len(current_chunk) >= max_items
+            or current_size + payload_size > MERGE_BATCH_MAX_BYTES
+        ):
+            chunks.append(current_chunk)
+            current_chunk = []
+            current_size = 0
+
+        current_chunk.append(payload)
+        current_size += payload_size
+
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    return chunks
+
+
+def _log_race_merge(payload: dict[str, Any]):
+    logger.info(
+        "Merging race raceDate=%s course=%s raceNo=%s raceId=%s",
+        payload.get("raceDate"),
+        payload.get("course"),
+        payload.get("raceNo"),
+        payload.get("raceId"),
+    )
+
+
+def _log_result_merge(payload: dict[str, Any]):
+    logger.info(
+        "Merging result raceDate=%s course=%s raceNo=%s raceId=%s horseNo=%s horseName=%s "
+        "first2fTime=%s first2fSplit=%s first2fPos=%s first2f=%s "
+        "last4fSplit=%s last3fSplit=%s last1fSplit=%s",
+        payload.get("raceDate"),
+        payload.get("course"),
+        payload.get("meta", {}).get("horse", {}).get("raceNumber"),
+        payload.get("raceId"),
+        payload.get("horseNo"),
+        payload.get("horseName"),
+        payload.get("first2fTime"),
+        payload.get("first2fSplit"),
+        payload.get("first2fPos"),
+        payload.get("first2f"),
+        payload.get("last4fSplit"),
+        payload.get("last3fSplit"),
+        payload.get("last1fSplit"),
+    )
+    logger.debug("Results merge payload: %s", json.dumps(payload, ensure_ascii=False, default=json_compatible_default))
+
+
+def _save_records_in_batches(type_name: str, payloads: list[dict[str, Any]], kind: str):
+    if not payloads:
+        return
+
+    log_single = _log_race_merge if kind == "race" else _log_result_merge
+
+    for payload in payloads:
+        log_single(payload)
+
+    for chunk in _batched_merge_chunks(type_name, payloads, kind):
+        _send_batch_with_fallback(type_name, chunk, kind)
+
+
+def _save_results_in_batches(payloads: list[dict[str, Any]]):
+    if not payloads:
+        return
+
+    for payload in payloads:
+        _log_result_merge(payload)
+
+    for index in range(0, len(payloads), RESULTS_ADD_BATCH_MAX_ITEMS):
+        _send_results_batch_with_fallback(payloads[index:index + RESULTS_ADD_BATCH_MAX_ITEMS])
+
+
+def _send_results_batch_with_fallback(chunk: list[dict[str, Any]]):
+    if len(chunk) == 1:
+        payload = chunk[0]
         try:
-            logger.info(
-                "Merging result raceDate=%s course=%s raceNo=%s raceId=%s horseNo=%s horseName=%s "
-                "first2fTime=%s first2fSplit=%s first2fPos=%s first2f=%s "
-                "last4fSplit=%s last3fSplit=%s last1fSplit=%s",
-                payload.get("raceDate"),
-                payload.get("course"),
-                payload.get("meta", {}).get("horse", {}).get("raceNumber"),
-                payload.get("raceId"),
-                payload.get("horseNo"),
-                payload.get("horseName"),
-                payload.get("first2fTime"),
-                payload.get("first2fSplit"),
-                payload.get("first2fPos"),
-                payload.get("first2f"),
-                payload.get("last4fSplit"),
-                payload.get("last3fSplit"),
-                payload.get("last1fSplit"),
-            )
-            logger.debug("Results merge payload: %s", json.dumps(payload, ensure_ascii=False, default=json_compatible_default))
             send_merge_mutation("com.superstring.globalracing.uk.models.types.Results", payload)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as single_exc:  # noqa: BLE001
             logger.error(
                 "Failed result merge raceId=%s horseNo=%s: %s",
                 payload.get("raceId"),
                 payload.get("horseNo"),
+                single_exc,
+            )
+        return
+
+    try:
+        logger.info("Batch adding results count=%s", len(chunk))
+        send_add_results_mutation(chunk)
+        return
+    except Exception as exc:  # noqa: BLE001
+        midpoint = len(chunk) // 2
+        logger.warning(
+            "Batch addResults failed count=%s: %s; retrying as two smaller batches",
+            len(chunk),
+            exc,
+        )
+        _send_results_batch_with_fallback(chunk[:midpoint])
+        _send_results_batch_with_fallback(chunk[midpoint:])
+
+
+def _send_batch_with_fallback(type_name: str, chunk: list[dict[str, Any]], kind: str):
+    if len(chunk) == 1:
+        payload = chunk[0]
+        try:
+            send_merge_mutation(type_name, payload)
+        except Exception as single_exc:  # noqa: BLE001
+            if kind == "race":
+                logger.error(
+                    "Failed race merge raceId=%s raceNo=%s: %s",
+                    payload.get("raceId"),
+                    payload.get("raceNo"),
+                    single_exc,
+                )
+            else:
+                logger.error(
+                    "Failed result merge raceId=%s horseNo=%s: %s",
+                    payload.get("raceId"),
+                    payload.get("horseNo"),
+                    single_exc,
+                )
+        return
+
+    try:
+        logger.info("Batch merging %s count=%s type=%s", kind, len(chunk), type_name)
+        send_merge_mutations_batch(type_name, chunk)
+        return
+    except Exception as exc:  # noqa: BLE001
+        if len(chunk) > 1:
+            midpoint = len(chunk) // 2
+            logger.warning(
+                "Batch merge failed kind=%s count=%s type=%s: %s; retrying as two smaller batches",
+                kind,
+                len(chunk),
+                type_name,
                 exc,
             )
+            _send_batch_with_fallback(type_name, chunk[:midpoint], kind)
+            _send_batch_with_fallback(type_name, chunk[midpoint:], kind)
+            return
 
 
 def json_compatible_default(value: Any):
@@ -387,6 +515,29 @@ def process_fixture_for_races_record(provider: ScraperProvider, fixture: dict[st
     )
     save_races(races)
 
+    parse_fixture_cards = getattr(provider, "parse_fixture_cards", None)
+    if callable(parse_fixture_cards):
+        try:
+            cards = parse_fixture_cards(fixture, races)
+        except Exception as exc:  # noqa: BLE001
+            logger.error(
+                "Failed racecard parse source=%s fixtureId=%s: %s",
+                provider.name,
+                fixture.get("fixtureId"),
+                exc,
+            )
+            return
+
+        logger.info(
+            "Parsed fixture cards source=%s fixtureId=%s raceDate=%s course=%s cards=%s",
+            provider.name,
+            fixture.get("fixtureId"),
+            fixture.get("raceDate"),
+            fixture.get("course"),
+            len(cards),
+        )
+        save_results(cards)
+
 
 def process_race_for_results_record(provider: ScraperProvider, race: dict[str, Any]):
     if not provider.accepts_race(race):
@@ -509,16 +660,31 @@ async def process_races_for_results_from_graphql(
     )
 
     for race in races:
-        if race.get("meta") in (None, "", {}):
-            fixture_key = (
-                str(race.get("raceDate") or ""),
-                str(race.get("course") or ""),
-                str(race.get("country") or country or ""),
-            )
-            fixture = fixture_lookup.get(fixture_key)
-            if fixture is not None:
+        fixture_key = (
+            str(race.get("raceDate") or ""),
+            str(race.get("course") or ""),
+            str(race.get("country") or country or ""),
+        )
+        fixture = fixture_lookup.get(fixture_key)
+        race_meta = race.get("meta")
+        fixture_meta = fixture.get("meta") if fixture is not None else None
+        if fixture_meta not in (None, "", {}):
+            merged_meta = None
+            if race_meta in (None, "", {}):
+                merged_meta = fixture_meta
+            elif isinstance(race_meta, dict) and isinstance(fixture_meta, dict):
+                needs_backfill = any(
+                    race_meta.get(key) in (None, "", {})
+                    for key in ["state", "meetingId", "race_meet_id"]
+                )
+                if needs_backfill:
+                    merged_meta = dict(fixture_meta)
+                    merged_meta.update(race_meta)
+                    if isinstance(fixture_meta.get("race"), dict) and race_meta.get("race") in (None, "", {}):
+                        merged_meta["race"] = fixture_meta.get("race")
+            if merged_meta is not None:
                 race = dict(race)
-                race["meta"] = fixture.get("meta")
+                race["meta"] = merged_meta
 
         provider = get_provider_for_race(race)
         if provider is None:

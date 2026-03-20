@@ -297,6 +297,68 @@ def test_process_races_for_results_from_graphql_enriches_missing_race_meta_from_
     assert processed == [("racingcom", 1, 5193255)]
 
 
+def test_process_races_for_results_from_graphql_backfills_missing_meta_fields_from_fixture(monkeypatch):
+    processed = []
+
+    async def fake_get_races_from_graphql(from_date, to_date, country, fetch_all=False, course=None):
+        return [
+            {
+                "raceId": 1,
+                "raceDate": "2026-03-07",
+                "course": "Flemington",
+                "country": "AUS",
+                "meta": {
+                    "meetingId": 5191184,
+                    "race_meet_id": 5191184,
+                    "race": {"id": "5435938"},
+                },
+            },
+        ]
+
+    async def fake_get_fixtures_from_graphql(from_date, to_date, country, fetch_all=False, course=None):
+        assert fetch_all is True
+        return [
+            {
+                "fixtureId": 10,
+                "raceDate": "2026-03-07",
+                "course": "Flemington",
+                "country": "AUS",
+                "src": "racingcom",
+                "meta": {"race_meet_id": 5191184, "meetingId": 5191184, "state": "VIC"},
+            },
+        ]
+
+    def fake_process_race_for_results_record(provider, race):
+        processed.append((provider.name, race["raceId"], race["meta"]["state"], race["meta"]["race"]["id"]))
+
+    monkeypatch.setattr(main, "get_races_from_graphql", fake_get_races_from_graphql)
+    monkeypatch.setattr(main, "get_fixtures_from_graphql", fake_get_fixtures_from_graphql)
+    monkeypatch.setattr(main, "process_race_for_results_record", fake_process_race_for_results_record)
+
+    asyncio.run(main.process_races_for_results_from_graphql(date(2026, 3, 7), date(2026, 3, 7), "AUS"))
+
+    assert processed == [("racingcom", 1, "VIC", "5435938")]
+
+
+def test_process_fixture_for_races_record_saves_cards_when_provider_supports_them(monkeypatch):
+    provider = main.get_provider("racingcom")
+    saved_races = []
+    saved_cards = []
+
+    monkeypatch.setattr(provider, "parse_fixture_races", lambda fixture: [{"raceId": 1, "raceNo": 1}])
+    monkeypatch.setattr(provider, "parse_fixture_cards", lambda fixture, races: [{"raceId": 1, "horseNo": 1, "rank": None}])
+    monkeypatch.setattr(main, "save_races", lambda races: saved_races.extend(races))
+    monkeypatch.setattr(main, "save_results", lambda cards: saved_cards.extend(cards))
+
+    main.process_fixture_for_races_record(
+        provider,
+        {"fixtureId": 7005193246, "raceDate": "2026-03-21", "course": "Rosehill Gardens", "meta": {"race_meet_id": 5193246}},
+    )
+
+    assert saved_races == [{"raceId": 1, "raceNo": 1}]
+    assert saved_cards == [{"raceId": 1, "horseNo": 1, "rank": None}]
+
+
 def test_save_races_serializes_datetime_as_isoformat(monkeypatch):
     captured = []
 
@@ -330,6 +392,75 @@ def test_save_races_serializes_datetime_as_isoformat(monkeypatch):
             },
         )
     ]
+
+
+def test_save_results_falls_back_to_single_row_merges_when_batch_fails(monkeypatch):
+    batched = []
+    singles = []
+
+    def fake_send_add_results_mutation(input_objs):
+        batched.append(input_objs)
+        raise RuntimeError("boom")
+
+    def fake_send_merge_mutation(type_name, input_obj):
+        singles.append((type_name, input_obj))
+        return {"ok": True}
+
+    monkeypatch.setattr(main, "send_add_results_mutation", fake_send_add_results_mutation)
+    monkeypatch.setattr(main, "send_merge_mutation", fake_send_merge_mutation)
+
+    main.save_results(
+        [
+            {"raceId": 1, "horseNo": 1, "meta": {"horse": {"raceNumber": 1}}},
+            {"raceId": 1, "horseNo": 2, "meta": {"horse": {"raceNumber": 1}}},
+        ]
+    )
+
+    assert len(batched) == 1
+    assert len(singles) == 2
+    assert [payload["horseNo"] for _, payload in singles] == [1, 2]
+
+
+def test_save_results_recursively_splits_failed_batches(monkeypatch):
+    batched = []
+    singles = []
+
+    def fake_send_add_results_mutation(input_objs):
+        batched.append(len(input_objs))
+        if len(input_objs) > 2:
+            raise RuntimeError("too big")
+        return {"ok": True}
+
+    def fake_send_merge_mutation(type_name, input_obj):
+        singles.append((type_name, input_obj))
+        return {"ok": True}
+
+    monkeypatch.setattr(main, "send_add_results_mutation", fake_send_add_results_mutation)
+    monkeypatch.setattr(main, "send_merge_mutation", fake_send_merge_mutation)
+
+    main._send_results_batch_with_fallback(
+        [
+            {"raceId": 1, "horseNo": 1},
+            {"raceId": 1, "horseNo": 2},
+            {"raceId": 1, "horseNo": 3},
+            {"raceId": 1, "horseNo": 4},
+        ],
+    )
+
+    assert batched == [4, 2, 2]
+    assert singles == []
+
+
+def test_batched_merge_chunks_uses_race_batch_limit():
+    payloads = [{"raceId": 1, "horseNo": index} for index in range(1, 6)]
+
+    race_chunks = main._batched_merge_chunks(
+        "com.superstring.globalracing.uk.models.types.Races",
+        payloads,
+        "race",
+    )
+
+    assert [len(chunk) for chunk in race_chunks] == [5]
 
 
 def test_dict_to_graphql_input_escapes_newlines_and_quotes():

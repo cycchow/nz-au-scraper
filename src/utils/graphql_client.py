@@ -10,6 +10,9 @@ if not GRAPHQL_VERIFY_TLS:
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
 
+_http_transport: RequestsHTTPTransport | None = None
+_http_client: Client | None = None
+
 
 async def graphql_subscribe(subscription_str, variables=None):
     """Generic GraphQL subscription over WebSocket."""
@@ -48,22 +51,53 @@ def dict_to_graphql_input(data):
     return "{" + ", ".join(f"{k}: {convert(v)}" for k, v in data.items()) + "}"
 
 
-def send_merge_mutation(type_name: str, input_obj: dict):
-    """Send merge() mutation for a GraphQL type."""
+def _build_merge_field(type_name: str, input_obj: dict, alias: str | None = None) -> str:
     input_literal = dict_to_graphql_input(input_obj)
-    query = (
-        "mutation { "
-        f'  merge(type: "{type_name}", '
-        f"input: {input_literal}"
-        ") "
-        "}"
-    )
+    prefix = f"{alias}: " if alias else ""
+    return f'{prefix}merge(type: "{type_name}", input: {input_literal})'
 
-    transport = RequestsHTTPTransport(
+
+def _get_http_client() -> Client:
+    global _http_transport, _http_client
+    if _http_client is not None:
+        return _http_client
+
+    _http_transport = RequestsHTTPTransport(
         url=GRAPHQL_ENDPOINT,
         headers=GRAPHQL_HEADERS,
         verify=GRAPHQL_VERIFY_TLS,
         retries=3,
     )
-    client = Client(transport=transport, fetch_schema_from_transport=False)
-    return client.execute(gql_query(query))
+    _http_client = Client(transport=_http_transport, fetch_schema_from_transport=False)
+    return _http_client
+
+
+def send_merge_mutation(type_name: str, input_obj: dict):
+    """Send merge() mutation for a GraphQL type."""
+    query = f"mutation {{ {_build_merge_field(type_name, input_obj)} }}"
+    return _get_http_client().execute(gql_query(query))
+
+
+def send_merge_mutations_batch(type_name: str, input_objs: list[dict]):
+    """Send many merge() mutations in a single GraphQL request using aliases."""
+    if not input_objs:
+        return {}
+
+    fields = [_build_merge_field(type_name, input_obj, alias=f"m{i}") for i, input_obj in enumerate(input_objs)]
+    query = "mutation { " + " ".join(fields) + " }"
+    return _get_http_client().execute(gql_query(query))
+
+
+def send_add_results_mutation(input_objs: list[dict]):
+    """Send bulk addResults() mutation using GraphQL variables."""
+    if not input_objs:
+        return {}
+
+    query = gql_query(
+        """
+        mutation AddResults($input: [JSON!]!) {
+          addResults(input: $input)
+        }
+        """
+    )
+    return _get_http_client().execute(query, variable_values={"input": input_objs})

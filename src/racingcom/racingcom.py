@@ -502,6 +502,247 @@ query getRaceResults_CD($meetCode: ID!, $raceNumber: Int!) {
 """.strip()
 
 
+def build_race_entries_query() -> str:
+    return """
+query getRaceEntriesForField_CD($meetCode: ID!, $raceNumber: Int!) {
+  getRaceForm(meetCode: $meetCode, raceNumber: $raceNumber) {
+    id
+    status
+    tempo
+    isTrial
+    isJumpOut
+    location
+    venueCode
+    rdcClass
+    venueState
+    venue {
+      venueName
+      state
+    }
+    distance
+    trackCondition
+    trackRating
+    class
+    group
+    nameForm
+    videoItems {
+      id
+      contenttype
+      url
+      poster
+    }
+    bestBets {
+      overview
+      suggestedBet
+      tipCondition
+      selectionTipper
+    }
+    raceTips {
+      raceCode
+      condition
+      comment
+      tipType
+      tipster {
+        tipsterId
+        profileImageUrl
+        tipsterName
+        isLead
+      }
+      tips {
+        position
+        tipBetType
+        comment
+        raceEntryItem {
+          raceEntryNumber
+          horseName
+          horseCode
+          jockeyCode
+          trainerCode
+          horseCountry
+          silkUrl
+          barrierNumber
+          emergency
+          emergencyNumber
+          scratched
+          trainerName
+          jockeyName
+          apprenticeCanClaim
+          apprenticeAllowedClaim
+          speedValue
+          faisHighlight {
+            key
+            positive
+          }
+          odds {
+            id
+            providerCode
+            oddsPlace
+            oddsWin
+            oddsIsFavouriteWin
+            oddsIsMarketMover
+            deepLinkWin
+            deepLinkPlace
+            deepLinkRace
+          }
+        }
+      }
+    }
+    formRaceEntries {
+      id
+      meetCode
+      raceCode
+      raceNumber
+      weight
+      weightPrevious
+      position
+      barrierNumber
+      liveBarrierNumber
+      prizeMoney
+      scratched
+      startingPrice
+      odds {
+        id
+        providerCode
+        oddsPlace
+        oddsWin
+        oddsIsFavouriteWin
+        oddsIsMarketMover
+        deepLinkWin
+        deepLinkPlace
+        deepLinkRace
+        flucsWin {
+          updateTime
+          amount
+        }
+      }
+      comment
+      commentShort
+      commentStewards
+      raceEntryNumber
+      apprenticeCanClaim
+      apprenticeAllowedClaim
+      weight
+      margin
+      winningTime
+      finish
+      finishAbv
+      gearHasChanges
+      gearChanges
+      lastGear
+      lastGearDate
+      horseUrl
+      silkUrl
+      jockeyUrl
+      jockeyCode
+      jockeyName
+      trainerUrl
+      trainerCode
+      trainerName
+      horseName
+      horseCode
+      handicapRating
+      handicapRatingProgression
+      isBlackbookSelected
+      isGetOnSelected
+      speedValue
+      trackDistanceStats
+      trackStats
+      distanceStats
+      jockeyStats
+      atThisClassStats
+      lastRaceDate
+      horseCountry
+      emergency
+      emergencyNumber
+      bestBets {
+        overview
+      }
+      faisHighlight {
+        key
+        positive
+      }
+      race {
+        meet {
+          meetUrl
+          meetTips {
+            longComment
+            shortComment
+          }
+        }
+      }
+      horse {
+        id
+        age
+        sex
+        colour
+        owners
+        sireHorseName
+        damHorseName
+        rating
+        ratingProgression
+        lastFive
+        country
+        careerWinPercent
+        careerPlacePercent
+        lastTenStats
+        lastTwelveMonthsStats
+        firstUpStats
+        secondUpStats
+        thirdUpStats
+        winningRange
+        maxDistanceWon
+        minDistanceWon
+        firmStats
+        goodStats
+        softStats
+        heavyStats
+        syntheticStats
+        jumpsRecordStats
+        groupListedStats
+        lastRaceDate
+        lastWinDate
+        careerPrizeMoney
+        silkUrl
+        stats {
+          starts
+          firsts
+          seconds
+          thirds
+        }
+        lastProfessionalRaceEntryItem {
+          raceCode
+          position
+          positionAbbreviation
+          race {
+            runnersCount
+            distance
+            date
+            venueAbbr
+            videoItems {
+              videoId
+              contenttype
+            }
+          }
+        }
+        blackBook {
+          timeStamp
+          meetCode
+          comment
+          raceEntryItemCode
+          tipsterName
+          raceDate
+          isTrial
+          isJumpOut
+          venueCode
+          venueName
+        }
+      }
+    }
+  }
+}
+""".strip()
+
+
 def graphql_api_key_for_host(host: str, discovered_api_key: str | None = None) -> str:
     normalized_host = (host or "").rstrip("/")
     if normalized_host == DEFAULT_RACE_DETAILS_GRAPHQL_HOST.rstrip("/"):
@@ -637,6 +878,47 @@ def fetch_race_form(
     raise RuntimeConfigError(f"Unexpected race form response shape: keys={list(payload.keys())}")
 
 
+def fetch_race_entries(
+    session: requests.Session,
+    graphql_host: str,
+    api_key: str,
+    meet_code: int | str,
+    race_number: int,
+) -> dict[str, Any]:
+    host_api_key = graphql_api_key_for_host(graphql_host, discovered_api_key=api_key)
+    resp = session.get(
+        graphql_host,
+        params={
+            "query": build_race_entries_query(),
+            "variables": json.dumps({"meetCode": str(meet_code), "raceNumber": int(race_number)}),
+        },
+        headers={
+            "accept": "*/*",
+            "origin": RACING_BASE_URL,
+            "referer": f"{RACING_BASE_URL}/",
+            "content-type": "application/json",
+            "x-api-key": host_api_key,
+            "user-agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+            ),
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+
+    payload = resp.json()
+    race_form = (payload.get("data") or {}).get("getRaceForm")
+    if isinstance(race_form, dict):
+        return race_form
+
+    errors = payload.get("errors") or []
+    if errors:
+        messages = ", ".join(str(error.get("message") or error) for error in errors)
+        raise RuntimeConfigError(f"Unable to fetch race entries meetCode={meet_code} raceNumber={race_number}: {messages}")
+    raise RuntimeConfigError(f"Unexpected race entries response shape: keys={list(payload.keys())}")
+
+
 def parse_fixture_date(value: Any) -> date | None:
     if isinstance(value, date):
         return value
@@ -715,9 +997,17 @@ def parse_start_times(value: Any, tz: ZoneInfo = AUS_TZ) -> tuple[datetime | Non
     return local_dt.replace(tzinfo=None), local_dt
 
 
-def infer_surface(condition_text: Any) -> str | None:
+def infer_surface(condition_text: Any, course: Any = None) -> str | None:
     text = str(condition_text or "").lower()
-    if "synthetic" in text or "polytrack" in text or "dirt" in text:
+    course_text = str(course or "").upper()
+    if (
+        "synthetic" in text
+        or "polytrack" in text
+        or "dirt" in text
+        or "POLY" in course_text
+        or "SYNTHETIC" in course_text
+        or "TAPETA" in course_text
+    ):
         return "DIRT"
     if "turf" in text:
         return "TURF"
@@ -771,6 +1061,23 @@ def parse_weight_carried(weight_text: Any, apprentice_claim_text: Any) -> float 
     return weight - claim
 
 
+def is_abandoned_race_status(value: Any) -> bool:
+    return str(value or "").strip().lower() == "abandoned"
+
+
+def parse_card_price(entry: dict[str, Any]) -> float | None:
+    direct_price = parse_price(entry.get("bettingFluctuationsPriceMoveOne"))
+    if direct_price is not None:
+        return direct_price
+    for odds_item in entry.get("odds") or []:
+        if not isinstance(odds_item, dict):
+            continue
+        odds_price = parse_price(odds_item.get("oddsWin"))
+        if odds_price is not None:
+            return odds_price
+    return None
+
+
 def full_name_from_profile_url(url: Any, fallback: Any = None) -> str | None:
     if not url:
         return fallback
@@ -785,6 +1092,9 @@ def full_name_from_profile_url(url: Any, fallback: Any = None) -> str | None:
 def normalize_jockey_name(url: Any, fallback_name: Any = None) -> str | None:
     candidate = full_name_from_profile_url(url, fallback_name)
     if not candidate:
+        return None
+    candidate = re.sub(r"\s+(GB|HK|GER|FR|NZ|JPN|IRE|JNR)\s*$", "", str(candidate).strip(), flags=re.IGNORECASE)
+    if candidate == "-":
         return None
     mapped = get_jockey_full_name(candidate)
     if mapped and mapped != candidate.upper():
@@ -823,7 +1133,10 @@ def full_entry_meta(entry: dict[str, Any]) -> dict[str, Any]:
 
 
 def normalize_runner_name(name: Any) -> str:
-    return str(name or "").strip().upper()
+    text = str(name or "").strip().upper()
+    text = re.sub(r"\s*\([^)]*\)", "", text)
+    text = re.sub(r"[^A-Z0-9]+", " ", text)
+    return " ".join(text.split())
 
 
 def sectional_value(candidate: dict[str, Any], keys: list[str]) -> Any:
@@ -871,48 +1184,49 @@ def map_sectionals(sectional: dict[str, Any] | None) -> dict[str, Any]:
 
     entries = sectional.get("sectionals") if isinstance(sectional, dict) else None
     if isinstance(entries, list) and entries:
-        by_distance: dict[int, dict[str, Any]] = {}
-        by_sector_number: dict[int, dict[str, Any]] = {}
-        last400_candidates: list[tuple[int, dict[str, Any]]] = []
-        for entry in entries:
+        ordered = []
+        for idx, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                continue
             sector_no = parse_numeric_int(entry.get("sector_number"))
-            dist = parse_numeric_int(entry.get("sector_distance"))
-            if sector_no is not None:
-                by_sector_number[sector_no] = entry
-            if dist == 400 and sector_no is not None and sector_no != 0:
-                last400_candidates.append((sector_no, entry))
-            if dist is not None and dist not in by_distance:
-                by_distance[dist] = entry
+            ordered.append((sector_no if sector_no is not None else idx, entry))
+        ordered = [entry for _, entry in sorted(ordered, key=lambda item: item[0])]
 
-        first200 = by_distance.get(200)
-        first400 = by_sector_number.get(0) or by_distance.get(400)
-        last1000 = by_distance.get(1000)
-        last800 = by_distance.get(800)
-        last600 = by_distance.get(600)
-        last400 = max(last400_candidates, key=lambda item: item[0])[1] if last400_candidates else None
-        last200 = by_distance.get(200)
-
-        if first200 and first200 is by_sector_number.get(0):
-            mapped["first1fSplit"] = parse_numeric_float(first200.get("sector_time"))
-            mapped["first1fTime"] = parse_numeric_float(first200.get("cumulative_sector_time")) or mapped["first1fSplit"]
-            mapped["first1fPos"] = parse_numeric_int(first200.get("sector_position"))
+        if ordered:
+            first = ordered[0]
+            mapped["first1fSplit"] = parse_numeric_float(first.get("sector_time"))
+            mapped["first1fTime"] = mapped["first1fSplit"]
+            mapped["first1fPos"] = parse_numeric_int(first.get("sector_position"))
             mapped["first1f"] = mapped["first1fSplit"]
-        if first400:
-            mapped["first2fSplit"] = parse_numeric_float(first400.get("sector_time"))
-            mapped["first2fTime"] = parse_numeric_float(first400.get("cumulative_sector_time")) or mapped["first2fSplit"]
-            mapped["first2fPos"] = parse_numeric_int(first400.get("sector_position"))
+        if len(ordered) >= 2:
+            second = ordered[1]
+            first_split = parse_numeric_float(ordered[0].get("sector_time")) or 0.0
+            second_split = parse_numeric_float(second.get("sector_time"))
+            mapped["first2fSplit"] = (first_split + second_split) if second_split is not None else None
+            mapped["first2fTime"] = mapped["first2fSplit"]
+            mapped["first2fPos"] = parse_numeric_int(second.get("sector_position"))
             mapped["first2f"] = mapped["first2fSplit"]
 
-        mapped["last5fSplit"] = parse_numeric_float(last1000.get("sector_time")) if last1000 else None
-        mapped["last5fPos"] = parse_numeric_int(last1000.get("sector_position")) if last1000 else None
-        mapped["last4fSplit"] = parse_numeric_float(last800.get("sector_time")) if last800 else None
-        mapped["last4fPos"] = parse_numeric_int(last800.get("sector_position")) if last800 else None
-        mapped["last3fSplit"] = parse_numeric_float(last600.get("sector_time")) if last600 else None
-        mapped["last3fPos"] = parse_numeric_int(last600.get("sector_position")) if last600 else None
-        mapped["last2fSplit"] = parse_numeric_float(last400.get("sector_time")) if last400 else None
-        mapped["last2fPos"] = parse_numeric_int(last400.get("sector_position")) if last400 else None
-        mapped["last1fSplit"] = parse_numeric_float(last200.get("sector_time")) if last200 else None
-        mapped["last1fPos"] = parse_numeric_int(last200.get("sector_position")) if last200 else None
+        if len(ordered) >= 1:
+            last1 = ordered[-1]
+            mapped["last1fSplit"] = parse_numeric_float(last1.get("sector_time"))
+            mapped["last1fPos"] = parse_numeric_int(last1.get("sector_position"))
+        if len(ordered) >= 2:
+            last2 = ordered[-2]
+            mapped["last2fSplit"] = parse_numeric_float(last2.get("sector_time"))
+            mapped["last2fPos"] = parse_numeric_int(last2.get("sector_position"))
+        if len(ordered) >= 3:
+            last3 = ordered[-3]
+            mapped["last3fSplit"] = parse_numeric_float(last3.get("sector_time"))
+            mapped["last3fPos"] = parse_numeric_int(last3.get("sector_position"))
+        if len(ordered) >= 4:
+            last4 = ordered[-4]
+            mapped["last4fSplit"] = parse_numeric_float(last4.get("sector_time"))
+            mapped["last4fPos"] = parse_numeric_int(last4.get("sector_position"))
+        if len(ordered) >= 5:
+            last5 = ordered[-5]
+            mapped["last5fSplit"] = parse_numeric_float(last5.get("sector_time"))
+            mapped["last5fPos"] = parse_numeric_int(last5.get("sector_position"))
     else:
         mapped["first1fSplit"] = parse_numeric_float(sectional_value(sectional, ["first200Split", "first_200_split", "first200"]))
         mapped["first1fTime"] = parse_numeric_float(sectional_value(sectional, ["first200Time", "first_200_time"]))
@@ -993,10 +1307,25 @@ def fetch_sectionals_for_race(
     if race_no is None:
         return []
 
-    state = (fixture_ctx.get("meta") or {}).get("state") or race_item.get("meet", {}).get("state")
+    meta = fixture_ctx.get("meta") or {}
+    state = (
+        meta.get("state")
+        or ((meta.get("race") or {}).get("meet") or {}).get("state")
+        or race_item.get("meet", {}).get("state")
+    )
     course = race_item.get("meet", {}).get("venue") or fixture_ctx.get("course")
     race_date = fixture_ctx.get("raceDate")
     has_sectionals = bool(race_item.get("hasSectionals"))
+
+    logger.info(
+        "Sectional routing raceDate=%s course=%s raceNo=%s state=%s meetCode=%s hasSectionals=%s",
+        race_date,
+        course,
+        race_no,
+        state,
+        meet_code,
+        has_sectionals,
+    )
 
     try:
         if state == "VIC" and has_sectionals:
@@ -1027,8 +1356,29 @@ def transform_race_form_results(
     fixture_ctx: dict[str, Any],
     sectionals: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
+    if is_abandoned_race_status(race_form.get("raceStatus")):
+        logger.info(
+            "Skipping abandoned racing.com results raceId=%s raceNo=%s raceDate=%s course=%s",
+            race_payload.get("raceId"),
+            race_payload.get("raceNo"),
+            fixture_ctx.get("raceDate"),
+            fixture_ctx.get("course"),
+        )
+        return []
+
     sectionals_by_no, sectionals_by_name = index_sectionals(sectionals or [])
     results: list[dict[str, Any]] = []
+    matched_sectionals = 0
+    unmatched_horses: list[str] = []
+
+    if sectionals:
+        logger.info(
+            "Prepared sectional indexes raceId=%s raceNo=%s byNo=%s byName=%s",
+            race_payload.get("raceId"),
+            race_payload.get("raceNo"),
+            sorted(sectionals_by_no.keys())[:10],
+            sorted(sectionals_by_name.keys())[:5],
+        )
 
     for entry in race_form.get("formRaceEntries") or []:
         horse_no = parse_numeric_int(entry.get("raceEntryNumber"))
@@ -1036,8 +1386,26 @@ def transform_race_form_results(
             continue
 
         horse_name = str(entry.get("horseName") or "").strip()
-        sectional = sectionals_by_no.get(horse_no) or sectionals_by_name.get(normalize_runner_name(horse_name))
+        normalized_horse_name = normalize_runner_name(horse_name)
+        sectional = sectionals_by_no.get(horse_no) or sectionals_by_name.get(normalized_horse_name)
+        if sectional is not None:
+            matched_sectionals += 1
+        else:
+            unmatched_horses.append(f"{horse_no}:{horse_name}")
         sec_map = map_sectionals(sectional)
+        logger.info(
+            "Sectional match raceId=%s raceNo=%s horseNo=%s horseName=%s normalizedHorse=%s matched=%s sectionalKeys=%s first2f=%s last4f=%s last1f=%s",
+            race_payload.get("raceId"),
+            race_payload.get("raceNo"),
+            horse_no,
+            horse_name,
+            normalized_horse_name,
+            sectional is not None,
+            sorted(sectional.keys()) if isinstance(sectional, dict) else None,
+            sec_map["first2fSplit"],
+            sec_map["last4fSplit"],
+            sec_map["last1fSplit"],
+        )
         scratched = bool(entry.get("scratched"))
         rank = normalize_finish_rank(entry.get("finish"))
         winning_time = parse_centiseconds(entry.get("winningTime"))
@@ -1092,7 +1460,7 @@ def transform_race_form_results(
                 "first2fSplit": sec_map["first2fSplit"],
                 "first2fPos": sec_map["first2fPos"],
                 "first2f": sec_map["first2f"],
-                "sp": parse_price(entry.get("bettingFluctuationsPriceMoveOne")),
+                "sp": parse_card_price(entry),
                 "meta": {
                     "horse": full_entry_meta(entry),
                     "sectional": sec_map["sectionalMeta"],
@@ -1100,12 +1468,131 @@ def transform_race_form_results(
             }
         )
 
+    if sectionals:
+        logger.info(
+            "Mapped sectionals raceId=%s raceNo=%s fetched=%s matched=%s unmatched=%s",
+            race_payload.get("raceId"),
+            race_payload.get("raceNo"),
+            len(sectionals),
+            matched_sectionals,
+            unmatched_horses[:5],
+        )
+
     return results
+
+
+def transform_race_form_cards(
+    race_form: dict[str, Any],
+    race_payload: dict[str, Any],
+    fixture_ctx: dict[str, Any],
+) -> list[dict[str, Any]]:
+    if is_abandoned_race_status(race_form.get("raceStatus")):
+        logger.info(
+            "Skipping abandoned racing.com racecard raceId=%s raceNo=%s raceDate=%s course=%s",
+            race_payload.get("raceId"),
+            race_payload.get("raceNo"),
+            fixture_ctx.get("raceDate"),
+            fixture_ctx.get("course"),
+        )
+        return []
+
+    cards: list[dict[str, Any]] = []
+    for entry in race_form.get("formRaceEntries") or []:
+        horse_no = parse_numeric_int(entry.get("raceEntryNumber"))
+        if horse_no is None or horse_no <= 0:
+            continue
+
+        horse_name = str(entry.get("horseName") or "").strip()
+        scratched = bool(entry.get("scratched"))
+
+        cards.append(
+            {
+                "raceDate": fixture_ctx.get("raceDate"),
+                "startTime": race_payload["startTime"],
+                "startTimeZoned": race_payload["startTimeZoned"],
+                "course": race_payload["course"],
+                "raceId": race_payload["raceId"],
+                "div": race_payload["div"],
+                "horseNo": horse_no,
+                "horseId": parse_numeric_int(entry.get("horseCode")) or parse_numeric_int((entry.get("horse") or {}).get("id")) or -999,
+                "horseName": horse_name,
+                "countryOfOrigin": str(entry.get("horseCountry") or "AUS").upper(),
+                "jockey": None if scratched else normalize_jockey_name(entry.get("jockeyUrl"), entry.get("jockeyName")),
+                "trainer": normalize_trainer_name(entry.get("trainerUrl"), entry.get("trainerName")),
+                "jockeyId": None if scratched else parse_numeric_int(entry.get("jockeyCode")),
+                "trainerId": parse_numeric_int(entry.get("trainerCode")),
+                "draw": None if scratched else parse_numeric_int(entry.get("liveBarrierNumber") or entry.get("barrierNumber")),
+                "rank": None,
+                "finishingTime": None,
+                "weightCarried": parse_weight_carried(entry.get("weight"), entry.get("apprenticeAllowedClaim")),
+                "last1fTime": None,
+                "last1fSplit": None,
+                "last1fPos": None,
+                "last1f": None,
+                "last2fTime": None,
+                "last2fSplit": None,
+                "last2fPos": None,
+                "last2f": None,
+                "last3fTime": None,
+                "last3fSplit": None,
+                "last3fPos": None,
+                "last3f": None,
+                "last4fTime": None,
+                "last4fSplit": None,
+                "last4fPos": None,
+                "last4f": None,
+                "last5fTime": None,
+                "last5fSplit": None,
+                "last5fPos": None,
+                "last5f": None,
+                "first1fTime": None,
+                "first1fSplit": None,
+                "first1fPos": None,
+                "first1f": None,
+                "first2fTime": None,
+                "first2fSplit": None,
+                "first2fPos": None,
+                "first2f": None,
+                "sp": parse_card_price(entry),
+                "meta": {
+                    "horse": full_entry_meta(entry),
+                    "cardRace": {
+                        "id": race_form.get("id"),
+                        "status": race_form.get("status"),
+                        "tempo": race_form.get("tempo"),
+                        "rdcClass": race_form.get("rdcClass"),
+                        "location": race_form.get("location"),
+                        "venueCode": race_form.get("venueCode"),
+                        "venueState": race_form.get("venueState"),
+                        "distance": race_form.get("distance"),
+                        "trackCondition": race_form.get("trackCondition"),
+                        "trackRating": race_form.get("trackRating"),
+                        "class": race_form.get("class"),
+                        "group": race_form.get("group"),
+                        "nameForm": race_form.get("nameForm"),
+                        "bestBets": deepcopy(race_form.get("bestBets")),
+                        "raceTips": deepcopy(race_form.get("raceTips")),
+                    },
+                },
+            }
+        )
+
+    return cards
 
 
 def transform_race_item(item: dict[str, Any], fixture_ctx: dict[str, Any]) -> dict[str, Any] | None:
     fixture_date = parse_fixture_date(fixture_ctx.get("raceDate"))
     if fixture_date is None:
+        return None
+
+    if is_abandoned_race_status(item.get("raceStatus")):
+        logger.info(
+            "Skipping abandoned racing.com race raceDate=%s course=%s raceNo=%s raceId=%s",
+            fixture_ctx.get("raceDate"),
+            fixture_ctx.get("course"),
+            item.get("raceNumber"),
+            item.get("id"),
+        )
         return None
 
     race_id_raw = parse_numeric_int(item.get("id"))
@@ -1121,7 +1608,7 @@ def transform_race_item(item: dict[str, Any], fixture_ctx: dict[str, Any]) -> di
         or item.get("meet", {}).get("venue")
     )
     distance = parse_distance_text(item.get("distance"))
-    surface = infer_surface(item.get("condition"))
+    surface = infer_surface(item.get("condition"), course)
     direction = get_direction(course, str(int(distance)), surface) if course and distance is not None else None
     state = (fixture_ctx.get("meta") or {}).get("state") or item.get("meet", {}).get("state")
     start_time, start_time_zoned = parse_start_times(item.get("time"), timezone_for_state(state))
@@ -1153,6 +1640,7 @@ def transform_race_item(item: dict[str, Any], fixture_ctx: dict[str, Any]) -> di
         "meta": {
             "meetingId": fixture_ctx.get("meetingId"),
             "race_meet_id": fixture_ctx.get("race_meet_id"),
+            "state": (fixture_ctx.get("meta") or {}).get("state") or item.get("meet", {}).get("state"),
             "race": item,
         },
     }
@@ -1197,7 +1685,7 @@ def transform_calendar_item(item: dict[str, Any], request_year: int, request_mon
         event_dt = event_dt.replace(tzinfo=event_tz)
     race_date = event_dt.astimezone(event_tz).date()
 
-    course = item.get("location_name") or item.get("club_name") or item.get("name")
+    course = normalize_course(item.get("location_name") or item.get("club_name") or item.get("name"))
     if not course:
         logger.warning("Skipping calendar item with missing course fields race_meet_id=%s", race_meet_id)
         return None

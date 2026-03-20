@@ -76,6 +76,41 @@ def test_parse_fixture_processes_future_fixture(monkeypatch):
     assert len(parsed.results) == 1
 
 
+def test_parse_fixture_races_uses_overview_for_same_day_without_xml(monkeypatch):
+    provider = LoveracingProvider()
+    today_nz = loveracing.datetime.now(loveracing.NZ_TZ).date()
+    fixture = {
+        "fixtureId": 6,
+        "raceDate": today_nz.isoformat(),
+        "course": "Ellerslie",
+        "meta": {"DayID": 54916},
+    }
+
+    calls = {"fetch": 0, "parse": 0}
+
+    def fake_fetch(day_id: int):
+        calls["fetch"] += 1
+        assert day_id == 54916
+        return "<html></html>"
+
+    def fake_parse(html_text: str, fixture_ctx: dict):
+        calls["parse"] += 1
+        assert html_text == "<html></html>"
+        assert fixture_ctx["meta"]["DayID"] == 54916
+        return ([{"raceId": 600233545, "raceNo": 1}], [{"raceId": 600233545, "horseNo": 1, "rank": None}])
+
+    monkeypatch.setattr(loveracing, "fetch_meeting_overview_html", fake_fetch)
+    monkeypatch.setattr(loveracing, "parse_meeting_overview_html", fake_parse)
+    monkeypatch.setattr(loveracing, "fetch_meeting_result_by_day_id", lambda day_id, meeting_date: None)
+
+    races = provider.parse_fixture_races(fixture)
+    cards = provider.parse_fixture_cards(fixture, races)
+
+    assert calls == {"fetch": 2, "parse": 2}
+    assert races == [{"raceId": 600233545, "raceNo": 1}]
+    assert cards == [{"raceId": 600233545, "horseNo": 1, "rank": None}]
+
+
 def test_parse_fixture_recovers_missing_past_result_download_xml(monkeypatch):
     provider = LoveracingProvider()
     today_nz = loveracing.datetime.now(loveracing.NZ_TZ).date()

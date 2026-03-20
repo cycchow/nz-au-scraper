@@ -8,7 +8,20 @@ ambiguous_mapping = {
 
 course_abbr_mapping = {
     # e.g. "MEY": "MEYDAN",
+    # "MORPHETTVILLE PARKS": "MORPHETTVILLE",
+    "CAULFIELD RACECOURSE": "CAULFIELD",
+    "ROSEHILL": "ROSEHILL GARDENS",
+
 }
+
+COURSE_PREFIXES_TO_REMOVE = [
+    "BET365 ",
+    "LADBROKES",
+    "SOUTHSIDE",
+    "SPORTSBET",
+    "SPORTSBET-",
+    "PICKLEBET PARK"
+]
 
 # Keys are usually:
 # - "course"
@@ -33,6 +46,18 @@ direction_mapping = {
     "gore": "Left",
     "omoto": "Left",
     "hastings": "Left",
+    "flemington-1200": "Straight-Right",
+    "flemington-1000": "Straight-Right",
+    "flemington": "Right",
+    "rosehill gardens": "Left",
+    "ascot": "Left",
+    "belmont": "Left",
+    "canterbury": "Right",
+    "caulfield": "Left",
+    "doomben": "Right",
+    "eagle farm": "Right",
+    "kensington": "Right",
+    
 }
 
 
@@ -48,7 +73,11 @@ def normalize_course(course: str | None) -> str | None:
     if not course:
         return course
     key = _normalize_course_key(course)
-    return course_abbr_mapping.get(key, course.strip())
+    normalized = course_abbr_mapping.get(key, course.strip())
+    for prefix in COURSE_PREFIXES_TO_REMOVE:
+        normalized = re.sub(rf"^\s*{re.escape(prefix)}[\s-]*", "", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"\s+", " ", normalized).strip(" -")
+    return normalized
 
 
 # --- copied logic pattern from era-scraper ---

@@ -441,6 +441,106 @@ def test_transform_race_items_use_state_local_start_time():
 
     assert races[0]["startTime"].isoformat() == "2026-03-15T10:10:00"
     assert races[0]["startTimeZoned"].isoformat() == "2026-03-15T10:10:00+11:00"
+    assert races[0]["meta"]["state"] == "NSW"
+
+
+def test_transform_calendar_item_uses_course_abbr_mapping(monkeypatch):
+    monkeypatch.setitem(racingcom.normalize_course.__globals__["course_abbr_mapping"], "ROSEHILL GDNS", "Rosehill Gardens")
+
+    fixture = racingcom.transform_calendar_item(
+        {
+            "id": "1",
+            "race_meet_id": "5193246",
+            "event_start_time": "2026-03-21T01:55:00Z",
+            "state": "NSW",
+            "location_name": "ROSEHILL GDNS",
+        },
+        2026,
+        3,
+    )
+
+    assert fixture["course"] == "Rosehill Gardens"
+
+
+def test_normalize_jockey_name_treats_dash_as_none():
+    assert racingcom.normalize_jockey_name(None, "-") is None
+
+
+def test_normalize_jockey_name_removes_trailing_country_suffixes():
+    assert racingcom.normalize_jockey_name(None, "ADAM FARRAGHER GB") == "ADAM FARRAGHER"
+    assert racingcom.normalize_jockey_name(None, "ADAM FARRAGHER gb") == "ADAM FARRAGHER"
+    assert racingcom.normalize_jockey_name(None, "ADAM FARRAGHER Gb   ") == "ADAM FARRAGHER"
+    assert racingcom.normalize_jockey_name(None, "YUGA KAWADA JPN") == "YUGA KAWADA"
+    assert racingcom.normalize_jockey_name(None, "RYAN MOORE IRE") == "RYAN MOORE"
+    assert racingcom.normalize_jockey_name(None, "JAMES ORMAN JNR") == "JAMES ORMAN"
+
+
+def test_infer_surface_uses_course_name_for_synthetic_tracks():
+    assert racingcom.infer_surface("Track type: Turf.", "Pakenham Synthetic") == "DIRT"
+    assert racingcom.infer_surface("Track type: Turf.", "Gold Coast Poly") == "DIRT"
+    assert racingcom.infer_surface("Track type: Turf.", "Wolverhampton Tapeta") == "DIRT"
+    assert racingcom.infer_surface("Track type: Turf.", "Rosehill Gardens") == "TURF"
+
+
+def test_transform_race_form_cards_maps_sample_response():
+    race_form_path = Path(__file__).resolve().parents[1] / "racingdotcom_sample" / "raceEntries.json"
+    race_form = json.loads(race_form_path.read_text())["data"]["getRaceForm"]
+    race_payload = {
+        "startTime": "2026-03-21T12:55:00",
+        "startTimeZoned": "2026-03-21T12:55:00+11:00",
+        "course": "Rosehill Gardens",
+        "raceId": racingcom.RACE_ID_BASE_AUS + 5449752,
+        "div": 0,
+        "raceNo": 1,
+    }
+
+    cards = racingcom.transform_race_form_cards(
+        race_form,
+        race_payload,
+        {"raceDate": "2026-03-21", "course": "Rosehill Gardens", "meta": {"state": "NSW"}},
+    )
+
+    assert len(cards) == len(race_form["formRaceEntries"])
+
+    dusty_bay = next(item for item in cards if item["horseNo"] == 7)
+    my_phar_lady = next(item for item in cards if item["horseNo"] == 8)
+
+    assert dusty_bay["horseName"] == "Dusty Bay"
+    assert dusty_bay["rank"] is None
+    assert dusty_bay["finishingTime"] is None
+    assert dusty_bay["first2fSplit"] is None
+    assert dusty_bay["draw"] == 7
+    assert dusty_bay["jockey"] == "Ben Thompson"
+    assert dusty_bay["trainer"] == "TRACEY BARTLEY"
+    assert dusty_bay["sp"] == 12.0
+    assert dusty_bay["meta"]["cardRace"]["status"] == "FinalFields"
+    assert dusty_bay["meta"]["cardRace"]["bestBets"]["selectionTipper"] == "Kevin Casey"
+    assert my_phar_lady["sp"] == 5.0
+    assert my_phar_lady["horseId"] == 5324031
+
+
+def test_transform_race_items_skips_abandoned_races():
+    races = racingcom.transform_race_items(
+        [
+            {
+                "id": "5449999",
+                "raceNumber": 7,
+                "raceStatus": "Abandoned",
+                "distance": "1200m",
+                "time": "2026-03-14T23:10:00Z",
+                "meet": {"venue": "Grafton", "state": "NSW"},
+            }
+        ],
+        {
+            "raceDate": "2026-03-15",
+            "course": "Grafton",
+            "meetingId": 705199999,
+            "race_meet_id": 5199999,
+            "meta": {"state": "NSW"},
+        },
+    )
+
+    assert races == []
 
 
 def test_transform_race_form_results_maps_sample_response():
@@ -488,7 +588,7 @@ def test_transform_race_form_results_maps_sample_response():
     assert winner["horseId"] == 5369579
     assert winner["horseName"] == "Chayan"
     assert winner["countryOfOrigin"] == "AUS"
-    assert winner["jockey"] == "James Mc Donald"
+    assert winner["jockey"] == "James Mcdonald"
     assert winner["trainer"] == "ANNABEL & ROB ARCHIBALD"
     assert winner["jockeyId"] == 775359
     assert winner["trainerId"] == 20971980
@@ -518,6 +618,29 @@ def test_transform_race_form_results_maps_sample_response():
     assert runner_up["draw"] == 5
     assert runner_up["countryOfOrigin"] == "AUS"
     assert next(item for item in results if item["horseNo"] == 4)["rank"] is None
+
+
+def test_transform_race_form_results_skips_abandoned_races():
+    results = racingcom.transform_race_form_results(
+        {
+            "raceStatus": "Abandoned",
+            "formRaceEntries": [
+                {"raceEntryNumber": 1, "horseName": "Sample Runner", "finish": 1, "winningTime": "7000"}
+            ],
+        },
+        {
+            "startTime": "2026-03-08T14:25:00",
+            "startTimeZoned": "2026-03-08T14:25:00+11:00",
+            "course": "Royal Randwick",
+            "raceId": racingcom.RACE_ID_BASE_AUS + 5449708,
+            "div": 0,
+            "raceNo": 3,
+        },
+        {"raceDate": "2026-03-08", "course": "Royal Randwick", "meta": {"state": "NSW"}},
+        sectionals=[{"horse_name": "SAMPLE RUNNER", "cloth_number": 1}],
+    )
+
+    assert results == []
 
 
 def test_fetch_sectionals_for_race_only_supports_vic_nsw_qld(monkeypatch):
@@ -559,6 +682,121 @@ def test_fetch_sectionals_for_race_only_supports_vic_nsw_qld(monkeypatch):
         ("http://localhost:8080/racingnsw", {"course": "Rosehill Gardens", "race_date": "2026-03-14", "race_no": 1}),
         ("http://localhost:8080/racingqld", {"course": "Ladbrokes Cannon Park", "race_date": "2024-01-28", "race_no": 1}),
     ]
+
+
+def test_map_sectionals_maps_nsw_ordered_sector_payload():
+    mapped = racingcom.map_sectionals(
+        {
+            "horse_name": "PARADOXIUM",
+            "cloth_number": 4,
+            "finishing_time": 70.37,
+            "sectionals": [
+                {"sector_number": 0, "sector_distance": 1000, "sector_time": 13.64, "cumulative_sector_time": 13.64, "sector_position": 1},
+                {"sector_number": 1, "sector_distance": 800, "sector_time": 11.12, "cumulative_sector_time": 24.76, "sector_position": 1},
+                {"sector_number": 2, "sector_distance": 600, "sector_time": 11.44, "cumulative_sector_time": 36.20, "sector_position": 1},
+                {"sector_number": 3, "sector_distance": 400, "sector_time": 11.55, "cumulative_sector_time": 47.75, "sector_position": 1},
+                {"sector_number": 4, "sector_distance": 200, "sector_time": 10.95, "cumulative_sector_time": 58.71, "sector_position": 1},
+                {"sector_number": 5, "sector_distance": 0, "sector_time": 11.66, "cumulative_sector_time": 70.37, "sector_position": 1},
+            ],
+        }
+    )
+
+    assert mapped["first1fSplit"] == 13.64
+    assert mapped["first1fTime"] == 13.64
+    assert round(mapped["first2fSplit"], 2) == 24.76
+    assert round(mapped["first2fTime"], 2) == 24.76
+    assert mapped["last4fSplit"] == 11.44
+    assert mapped["last3fSplit"] == 11.55
+    assert mapped["last2fSplit"] == 10.95
+    assert mapped["last1fSplit"] == 11.66
+    assert round(mapped["last4f"], 2) == 45.6
+    assert mapped["finishingTime"] == 70.37
+
+
+def test_map_sectionals_maps_racingdotcom_ordered_sector_payload():
+    mapped = racingcom.map_sectionals(
+        {
+            "horse_name": "ARCORA",
+            "cloth_number": 11,
+            "finishing_time": 120.11,
+            "sectionals": [
+                {"sector_number": 0, "sector_distance": 1800, "sector_time": 13.85, "cumulative_sector_time": 106.26, "sector_position": 1},
+                {"sector_number": 1, "sector_distance": 1600, "sector_time": 10.91, "cumulative_sector_time": 95.35, "sector_position": 1},
+                {"sector_number": 2, "sector_distance": 1400, "sector_time": 11.78, "cumulative_sector_time": 83.57, "sector_position": 1},
+                {"sector_number": 3, "sector_distance": 1200, "sector_time": 12.12, "cumulative_sector_time": 71.45, "sector_position": 1},
+                {"sector_number": 4, "sector_distance": 1000, "sector_time": 12.18, "cumulative_sector_time": 59.27, "sector_position": 2},
+                {"sector_number": 5, "sector_distance": 800, "sector_time": 11.74, "cumulative_sector_time": 47.53, "sector_position": 1},
+                {"sector_number": 6, "sector_distance": 600, "sector_time": 11.48, "cumulative_sector_time": 36.05, "sector_position": 1},
+                {"sector_number": 7, "sector_distance": 400, "sector_time": 11.33, "cumulative_sector_time": 24.72, "sector_position": 1},
+                {"sector_number": 8, "sector_distance": 200, "sector_time": 11.85, "cumulative_sector_time": 12.87, "sector_position": 1},
+                {"sector_number": 9, "sector_distance": 0, "sector_time": 12.87, "cumulative_sector_time": 120.11, "sector_position": 1},
+            ],
+        }
+    )
+
+    assert mapped["first1fSplit"] == 13.85
+    assert round(mapped["first2fSplit"], 2) == 24.76
+    assert mapped["last4fSplit"] == 11.48
+    assert mapped["last3fSplit"] == 11.33
+    assert mapped["last2fSplit"] == 11.85
+    assert mapped["last1fSplit"] == 12.87
+    assert round(mapped["last4f"], 2) == 47.53
+    assert mapped["finishingTime"] == 120.11
+
+
+def test_transform_race_form_results_matches_list_sectionals_by_cloth_number():
+    race_form = {
+        "formRaceEntries": [
+            {
+                "raceEntryNumber": 11,
+                "horseName": "Arcora",
+                "finish": 1,
+                "winningTime": "12011",
+                "weight": "57kg",
+            }
+        ]
+    }
+    race_payload = {
+        "startTime": "2026-03-07T17:10:00",
+        "startTimeZoned": "2026-03-07T17:10:00+11:00",
+        "course": "Flemington",
+        "raceId": racingcom.RACE_ID_BASE_AUS + 5435938,
+        "div": 0,
+        "raceNo": 10,
+    }
+    sectionals = [
+        {
+            "horse_name": "ARCORA",
+            "cloth_number": 11,
+            "finishing_time": 120.11,
+            "sectionals": [
+                {"sector_number": 0, "sector_distance": 1800, "sector_time": 13.85, "cumulative_sector_time": 106.26, "sector_position": 1},
+                {"sector_number": 1, "sector_distance": 1600, "sector_time": 10.91, "cumulative_sector_time": 95.35, "sector_position": 1},
+                {"sector_number": 2, "sector_distance": 1400, "sector_time": 11.78, "cumulative_sector_time": 83.57, "sector_position": 1},
+                {"sector_number": 3, "sector_distance": 1200, "sector_time": 12.12, "cumulative_sector_time": 71.45, "sector_position": 1},
+                {"sector_number": 4, "sector_distance": 1000, "sector_time": 12.18, "cumulative_sector_time": 59.27, "sector_position": 2},
+                {"sector_number": 5, "sector_distance": 800, "sector_time": 11.74, "cumulative_sector_time": 47.53, "sector_position": 1},
+                {"sector_number": 6, "sector_distance": 600, "sector_time": 11.48, "cumulative_sector_time": 36.05, "sector_position": 1},
+                {"sector_number": 7, "sector_distance": 400, "sector_time": 11.33, "cumulative_sector_time": 24.72, "sector_position": 1},
+                {"sector_number": 8, "sector_distance": 200, "sector_time": 11.85, "cumulative_sector_time": 12.87, "sector_position": 1},
+                {"sector_number": 9, "sector_distance": 0, "sector_time": 12.87, "cumulative_sector_time": 120.11, "sector_position": 1},
+            ],
+        }
+    ]
+
+    results = racingcom.transform_race_form_results(
+        race_form,
+        race_payload,
+        {"raceDate": "2026-03-07", "course": "Flemington", "meta": {"state": "VIC"}},
+        sectionals=sectionals,
+    )
+
+    assert len(results) == 1
+    assert results[0]["horseNo"] == 11
+    assert round(results[0]["first2fSplit"], 2) == 24.76
+    assert results[0]["last4fSplit"] == 11.48
+    assert results[0]["last1fSplit"] == 12.87
+    assert results[0]["finishingTime"] == 120.11
 
 
 def test_parse_fixture_uses_past_fixture_race_details(monkeypatch):
@@ -657,7 +895,7 @@ def test_parse_fixture_uses_past_fixture_race_details(monkeypatch):
     assert parsed.results[0]["horseNo"] == 5
 
 
-def test_parse_fixture_skips_today_or_future(monkeypatch):
+def test_parse_fixture_cards_fetches_for_today_or_future(monkeypatch):
     provider = RacingComProvider()
     fixture = {
         "fixtureId": 8705191184,
@@ -666,13 +904,56 @@ def test_parse_fixture_skips_today_or_future(monkeypatch):
         "meetingId": 705191184,
         "meta": {"race_meet_id": 5191184},
     }
+    race = {
+        "raceDate": "2099-03-07",
+        "startTime": "2099-03-07T17:10:00",
+        "startTimeZoned": "2099-03-07T17:10:00+11:00",
+        "course": "Flemington",
+        "raceNo": 10,
+        "raceId": racingcom.RACE_ID_BASE_AUS + 5435938,
+        "div": 0,
+        "meta": {"race_meet_id": 5191184, "state": "VIC", "race": {"id": "5435938"}},
+    }
+    called = {}
 
-    def fail_discover_runtime_config():
-        raise AssertionError("runtime config should not be fetched for non-past fixtures")
+    monkeypatch.setattr(
+        racingcom,
+        "discover_runtime_config",
+        lambda: {
+            "appSyncGraphQLHost": "https://graphql.api.racing.com",
+            "appSyncGraphQLAPIKey": "calendar-key",
+            "raceDetailsGraphQLHost": "https://graphql.rmdprod.racing.com/",
+            "raceDetailsGraphQLAPIKey": "race-api-key",
+        },
+    )
 
-    monkeypatch.setattr(racingcom, "discover_runtime_config", fail_discover_runtime_config)
+    def fake_fetch_race_entries(session, graphql_host, api_key, meet_code, race_number):
+        called["race_entries"] = (graphql_host, api_key, meet_code, race_number)
+        return {
+            "status": "FinalFields",
+            "formRaceEntries": [
+                {
+                    "raceEntryNumber": 11,
+                    "horseName": "Arcora",
+                    "horseCode": "5339976",
+                    "trainerName": "C.Maher",
+                    "trainerCode": "22809",
+                    "jockeyName": "M.Zahra",
+                    "jockeyCode": "22573",
+                    "liveBarrierNumber": 11,
+                    "barrierNumber": 11,
+                    "bettingFluctuationsPriceMoveOne": "$5.00",
+                    "apprenticeAllowedClaim": "0",
+                    "scratched": False,
+                }
+            ],
+        }
 
-    parsed = provider.parse_fixture(fixture)
+    monkeypatch.setattr(racingcom, "fetch_race_entries", fake_fetch_race_entries)
 
-    assert parsed.races == []
-    assert parsed.results == []
+    cards = provider.parse_fixture_cards(fixture, [race])
+
+    assert called["race_entries"] == ("https://graphql.rmdprod.racing.com/", "race-api-key", 5191184, 10)
+    assert len(cards) == 1
+    assert cards[0]["horseNo"] == 11
+    assert cards[0]["rank"] is None

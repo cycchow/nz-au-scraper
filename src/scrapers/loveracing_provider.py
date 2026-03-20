@@ -157,6 +157,53 @@ class LoveracingProvider:
         meta = _parse_meta(race.get("meta"))
         return _day_id_from_race_meta(meta) is not None
 
+    def _parse_overview_output(
+        self,
+        fixture: dict[str, Any],
+        meta: dict[str, Any],
+        fixture_date: date,
+        day_id: int,
+        today_nz: date,
+    ) -> FixtureProcessOutput:
+        fixture_ctx = {
+            "raceDate": fixture_date.isoformat(),
+            "course": fixture.get("course"),
+            "meta": meta,
+        }
+
+        html_text = loveracing.fetch_meeting_overview_html(day_id)
+        overview_races, overview_results = loveracing.parse_meeting_overview_html(html_text, fixture_ctx)
+        overview_output = FixtureProcessOutput(races=overview_races, results=overview_results)
+
+        if fixture_date != today_nz:
+            return overview_output
+
+        filename = _resolve_result_download_xml(meta, day_id, fixture_date)
+        if not filename:
+            return overview_output
+
+        try:
+            xml_text = self._get_cached_meeting_xml(day_id, filename)
+            xml_races, xml_results = loveracing.parse_meeting_xml(
+                xml_text,
+                fixture_ctx,
+                sectional_fetcher=loveracing.fetch_sectionals,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Failed same-day XML overlay fixtureId=%s dayId=%s: %s",
+                fixture.get("fixtureId"),
+                day_id,
+                exc,
+            )
+            return overview_output
+
+        return _merge_same_day_outputs(
+            overview_output,
+            FixtureProcessOutput(races=xml_races, results=xml_results),
+            datetime.now(loveracing.NZ_TZ),
+        )
+
     def parse_fixture_races(self, fixture: dict[str, Any]) -> list[dict[str, Any]]:
         meta = _parse_meta(fixture.get("meta"))
         fixture_date = _coerce_race_date(fixture.get("raceDate"))
@@ -177,31 +224,45 @@ class LoveracingProvider:
             "meta": meta,
         }
 
-        # Future fixtures always use the meeting overview racecard.
-        if fixture_date > today_nz:
-            html_text = loveracing.fetch_meeting_overview_html(day_id)
-            races, results = loveracing.parse_meeting_overview_html(html_text, fixture_ctx)
-            return races
+        if fixture_date >= today_nz:
+            return self._parse_overview_output(fixture, meta, fixture_date, day_id, today_nz).races
 
-        # Same-day and past fixtures use XML-backed races for the persisted race rows.
-        if fixture_date <= today_nz:
-            filename = _resolve_result_download_xml(meta, day_id, fixture_date)
-            if not filename:
-                logger.warning(
-                    "Skipping fixture without ResultDownloadXML fixtureId=%s dayId=%s",
-                    fixture.get("fixtureId"),
-                    day_id,
-                )
-                return []
-            xml_text = self._get_cached_meeting_xml(day_id, filename)
-            races, _ = loveracing.parse_meeting_xml(
-                xml_text,
-                fixture_ctx,
-                sectional_fetcher=loveracing.fetch_sectionals,
+        filename = _resolve_result_download_xml(meta, day_id, fixture_date)
+        if not filename:
+            logger.warning(
+                "Skipping fixture without ResultDownloadXML fixtureId=%s dayId=%s",
+                fixture.get("fixtureId"),
+                day_id,
             )
-            return races
+            return []
+        xml_text = self._get_cached_meeting_xml(day_id, filename)
+        races, _ = loveracing.parse_meeting_xml(
+            xml_text,
+            fixture_ctx,
+            sectional_fetcher=loveracing.fetch_sectionals,
+        )
+        return races
 
         return []
+
+    def parse_fixture_cards(self, fixture: dict[str, Any], races: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+        meta = _parse_meta(fixture.get("meta"))
+        fixture_date = _coerce_race_date(fixture.get("raceDate"))
+        if fixture_date is None:
+            logger.warning("Skipping fixture cards with invalid raceDate fixtureId=%s", fixture.get("fixtureId"))
+            return []
+
+        today_nz = datetime.now(loveracing.NZ_TZ).date()
+        if fixture_date < today_nz:
+            return []
+
+        try:
+            day_id = int(meta.get("DayID"))
+        except (TypeError, ValueError):
+            logger.warning("Skipping fixture cards missing DayID fixtureId=%s", fixture.get("fixtureId"))
+            return []
+
+        return self._parse_overview_output(fixture, meta, fixture_date, day_id, today_nz).results
 
     def parse_race_results(self, race: dict[str, Any]) -> list[dict[str, Any]]:
         race_meta = _parse_meta(race.get("meta"))
@@ -250,7 +311,6 @@ class LoveracingProvider:
             return FixtureProcessOutput(races=[], results=[])
 
         today_nz = datetime.now(loveracing.NZ_TZ).date()
-        now_nz = datetime.now(loveracing.NZ_TZ)
         try:
             day_id = int(meta.get("DayID"))
         except (TypeError, ValueError):
@@ -263,43 +323,8 @@ class LoveracingProvider:
             "meta": meta,
         }
 
-        # Future fixtures always use the meeting overview racecard.
-        if fixture_date > today_nz:
-            html_text = loveracing.fetch_meeting_overview_html(day_id)
-            races, results = loveracing.parse_meeting_overview_html(html_text, fixture_ctx)
-            return FixtureProcessOutput(races=races, results=results)
-
-        # Same-day fixtures can have a mix of completed races and upcoming racecards.
-        if fixture_date == today_nz:
-            html_text = loveracing.fetch_meeting_overview_html(day_id)
-            overview_races, overview_results = loveracing.parse_meeting_overview_html(html_text, fixture_ctx)
-            overview_output = FixtureProcessOutput(races=overview_races, results=overview_results)
-
-            filename = _resolve_result_download_xml(meta, day_id, fixture_date)
-            if not filename:
-                return overview_output
-
-            try:
-                xml_text = self._get_cached_meeting_xml(day_id, filename)
-                xml_races, xml_results = loveracing.parse_meeting_xml(
-                    xml_text,
-                    fixture_ctx,
-                    sectional_fetcher=loveracing.fetch_sectionals,
-                )
-            except Exception as exc:  # noqa: BLE001
-                logger.warning(
-                    "Failed same-day XML overlay fixtureId=%s dayId=%s: %s",
-                    fixture.get("fixtureId"),
-                    day_id,
-                    exc,
-                )
-                return overview_output
-
-            return _merge_same_day_outputs(
-                overview_output,
-                FixtureProcessOutput(races=xml_races, results=xml_results),
-                now_nz,
-            )
+        if fixture_date >= today_nz:
+            return self._parse_overview_output(fixture, meta, fixture_date, day_id, today_nz)
 
         # Past fixtures: fetch XML results payload.
         filename = _resolve_result_download_xml(meta, day_id, fixture_date)
