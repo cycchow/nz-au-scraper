@@ -1610,6 +1610,14 @@ def transform_race_item(item: dict[str, Any], fixture_ctx: dict[str, Any]) -> di
     distance = parse_distance_text(item.get("distance"))
     surface = infer_surface(item.get("condition"), course)
     direction = get_direction(course, str(int(distance)), surface) if course and distance is not None else None
+    rdc_class = (item.get("rdcClass") or "").strip()
+    rdc_class_upper = rdc_class.upper()
+    if "STEEPLECHASE" in rdc_class_upper:
+        race_type = "Steeplechase"
+    elif "HURDLE" in rdc_class_upper:
+        race_type = "Hurdle"
+    else:
+        race_type = "FLAT"
     state = (fixture_ctx.get("meta") or {}).get("state") or item.get("meet", {}).get("state")
     start_time, start_time_zoned = parse_start_times(item.get("time"), timezone_for_state(state))
     if start_time is None:
@@ -1623,7 +1631,7 @@ def transform_race_item(item: dict[str, Any], fixture_ctx: dict[str, Any]) -> di
         "distance": distance,
         "distanceText": item.get("distance"),
         "prizeMoney": parse_numeric_int(item.get("totalPrizeMoney")),
-        "raceType": "FLAT",
+        "raceType": race_type,
         "going": item.get("trackCondition"),
         "goingText": build_going_text(item.get("trackCondition"), item.get("trackRating")),
         "reading": parse_numeric_float(item.get("trackRating")),

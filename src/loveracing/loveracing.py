@@ -418,6 +418,59 @@ def _extract_col_value(row: Tag, selector: str) -> str | None:
     return text or None
 
 
+def _parse_overview_track_conditions(soup: BeautifulSoup) -> tuple[str | None, str | None, float | None]:
+    for item in soup.select("div.track-conditions li"):
+        heading = _extract_col_value(item, "h4")
+        if not heading or heading.lower() != "going":
+            continue
+
+        going = None
+        icon = item.select_one(".icon img")
+        if icon:
+            going = re.sub(r"\s+", " ", (icon.get("alt") or icon.get("title") or "")).strip() or None
+
+        going_text = _extract_col_value(item, "em")
+        if going_text:
+            match = re.match(r"^([A-Za-z]+)\s*([0-9]+(?:\.[0-9]+)?)", going_text)
+            if match:
+                if going is None:
+                    going = match.group(1)
+                going_text = f"{match.group(1)}{match.group(2)}"
+                return going, going_text, _to_float(match.group(2))
+        return going, going_text, None
+
+    return None, None, None
+
+
+def _parse_overview_track_direction(soup: BeautifulSoup) -> str | None:
+    for item in soup.select("div.track-conditions li"):
+        heading = _extract_col_value(item, "h4")
+        if not heading or heading.lower() != "track":
+            continue
+
+        icon = item.select_one(".icon img")
+        raw_direction = None
+        if icon:
+            raw_direction = re.sub(r"\s+", " ", (icon.get("alt") or icon.get("title") or "")).strip() or None
+        if raw_direction is None:
+            raw_direction = _extract_col_value(item, "em")
+        if raw_direction is None:
+            return None
+
+        lowered = raw_direction.lower()
+        if "straight" in lowered and "right" in lowered:
+            return "Straight-Right"
+        if "straight" in lowered and "left" in lowered:
+            return "Straight-Left"
+        if "right" in lowered:
+            return "Right"
+        if "left" in lowered:
+            return "Left"
+        return raw_direction
+
+    return None
+
+
 def _parse_horse_row(row: Tag) -> dict[str, Any]:
     horse_no = _to_int(_extract_col_value(row, ".col-number"))
     horse_link = row.select_one(".col-horse a")
@@ -680,6 +733,8 @@ def parse_meeting_overview_html(
     results_payload: list[dict[str, Any]] = []
 
     soup = BeautifulSoup(html_text, "html.parser")
+    going, going_text, reading = _parse_overview_track_conditions(soup)
+    track_direction = _parse_overview_track_direction(soup)
     race_items = soup.select("li.race.fields-download")
 
     for race_item in race_items:
@@ -712,7 +767,7 @@ def parse_meeting_overview_html(
             )
             continue
 
-        direction = get_direction(course, str(int(distance)), "TURF") if course and distance is not None else None
+        direction = track_direction or (get_direction(course, str(int(distance)), "TURF") if course and distance is not None else None)
         race_payload = {
             "raceDate": meeting_date.isoformat(),
             "course": course,
@@ -728,8 +783,9 @@ def parse_meeting_overview_html(
             "raceNo": race_no,
             "country": "NZ",
             "currency": "NZD",
-            "goingText": None,
-            "going": None,
+            "goingText": going_text,
+            "going": going,
+            "reading": reading,
             "surface": "TURF",
             "direction": direction,
             "meta": {

@@ -126,6 +126,20 @@ def test_to_fixture_records_uses_racedate_fallback_for_calendar_shape():
 
 def test_parse_meeting_overview_html_maps_race_and_cards():
     html = """
+    <div class="track-conditions">
+      <ul class="no-bullets">
+        <li>
+          <h4>Going</h4>
+          <div class="icon"><img alt="Soft" title="Soft" /></div>
+          <em>Soft5 6.53 am 22/03/26</em>
+        </li>
+        <li>
+          <h4>Track</h4>
+          <div class="icon"><img alt="Left hand" title="Left hand" /></div>
+          <em>Left hand<br />1628m</em>
+        </li>
+      </ul>
+    </div>
     <ul>
       <li class="race fields-download">
         <table class="overview-info">
@@ -176,6 +190,10 @@ def test_parse_meeting_overview_html_maps_race_and_cards():
     assert races[0]["distance"] == 1600.0
     assert races[0]["prizeMoney"] == 80000
     assert races[0]["raceId"] == 600233545
+    assert races[0]["going"] == "Soft"
+    assert races[0]["goingText"] == "Soft5"
+    assert races[0]["reading"] == 5.0
+    assert races[0]["direction"] == "Left"
 
     assert len(results) == 1
     assert results[0]["horseNo"] == 1

@@ -444,6 +444,58 @@ def test_transform_race_items_use_state_local_start_time():
     assert races[0]["meta"]["state"] == "NSW"
 
 
+def test_transform_race_items_sets_jumps_race_type_from_rdc_class():
+    races = racingcom.transform_race_items(
+        [
+            {
+                "id": "5450001",
+                "raceNumber": 1,
+                "distance": "3200m",
+                "totalPrizeMoney": "75000",
+                "trackCondition": "Soft",
+                "trackRating": "6",
+                "rdcClass": "Open Hurdle",
+                "condition": "Track type: Turf.",
+                "time": "2026-03-21T02:00:00Z",
+                "meet": {"venue": "Warrnambool", "state": "VIC"},
+            },
+            {
+                "id": "5450002",
+                "raceNumber": 2,
+                "distance": "3450m",
+                "totalPrizeMoney": "100000",
+                "trackCondition": "Soft",
+                "trackRating": "6",
+                "rdcClass": "Maiden Steeplechase",
+                "condition": "Track type: Turf.",
+                "time": "2026-03-21T02:40:00Z",
+                "meet": {"venue": "Warrnambool", "state": "VIC"},
+            },
+            {
+                "id": "5450003",
+                "raceNumber": 3,
+                "distance": "1400m",
+                "totalPrizeMoney": "50000",
+                "trackCondition": "Good",
+                "trackRating": "4",
+                "rdcClass": "BM 64",
+                "condition": "Track type: Turf.",
+                "time": "2026-03-21T03:20:00Z",
+                "meet": {"venue": "Warrnambool", "state": "VIC"},
+            },
+        ],
+        {
+            "raceDate": "2026-03-21",
+            "course": "Warrnambool",
+            "meetingId": 705450001,
+            "race_meet_id": 5200001,
+            "meta": {"state": "VIC"},
+        },
+    )
+
+    assert [race["raceType"] for race in races] == ["Hurdle", "Steeplechase", "FLAT"]
+
+
 def test_transform_calendar_item_uses_course_abbr_mapping(monkeypatch):
     monkeypatch.setitem(racingcom.normalize_course.__globals__["course_abbr_mapping"], "ROSEHILL GDNS", "Rosehill Gardens")
 

@@ -206,6 +206,11 @@ Racing.com race/result specifics:
   - `race_meet_id`
   - `state`
   - `race`
+- race type inference:
+  - Racing.com normally saves `raceType="FLAT"`
+  - if `rdcClass` contains `Hurdle` (case-insensitive), `raceType="Hurdle"`
+  - if `rdcClass` contains `Steeplechase` (case-insensitive), `raceType="Steeplechase"`
+  - `raceClass` still preserves the original `rdcClass` text
 - abandoned races are skipped:
   - if a race list item has `raceStatus="Abandoned"`, no race row is saved
   - if `getRaceForm` returns `raceStatus="Abandoned"`, no result rows are saved
