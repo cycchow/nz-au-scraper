@@ -12,7 +12,7 @@ from urllib.parse import urljoin
 
 import requests
 
-from utils.course_utils import get_direction, normalize_course
+from utils.course_utils import get_direction, get_surface_override, normalize_course
 from utils.jockey_name_mapping import get_jockey_full_name
 
 logger = logging.getLogger(__name__)
@@ -502,6 +502,23 @@ query getRaceResults_CD($meetCode: ID!, $raceNumber: Int!) {
 """.strip()
 
 
+def build_meeting_query() -> str:
+    return """
+query getMeeting_CD($meetCode: ID!) {
+  getMeeting(id: $meetCode) {
+    id
+    track
+    state
+    venue
+    venueName
+    trackCondition
+    trackRating
+    date
+  }
+}
+""".strip()
+
+
 def build_race_entries_query() -> str:
     return """
 query getRaceEntriesForField_CD($meetCode: ID!, $raceNumber: Int!) {
@@ -919,6 +936,46 @@ def fetch_race_entries(
     raise RuntimeConfigError(f"Unexpected race entries response shape: keys={list(payload.keys())}")
 
 
+def fetch_meeting(
+    session: requests.Session,
+    graphql_host: str,
+    api_key: str,
+    meet_code: int | str,
+) -> dict[str, Any]:
+    host_api_key = graphql_api_key_for_host(graphql_host, discovered_api_key=api_key)
+    resp = session.get(
+        graphql_host,
+        params={
+            "query": build_meeting_query(),
+            "variables": json.dumps({"meetCode": str(meet_code)}),
+        },
+        headers={
+            "accept": "*/*",
+            "origin": RACING_BASE_URL,
+            "referer": f"{RACING_BASE_URL}/",
+            "content-type": "application/json",
+            "x-api-key": host_api_key,
+            "user-agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+            ),
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+
+    payload = resp.json()
+    meeting = (payload.get("data") or {}).get("getMeeting")
+    if isinstance(meeting, dict):
+        return meeting
+
+    errors = payload.get("errors") or []
+    if errors:
+        messages = ", ".join(str(error.get("message") or error) for error in errors)
+        raise RuntimeConfigError(f"Unable to fetch meeting meetCode={meet_code}: {messages}")
+    raise RuntimeConfigError(f"Unexpected meeting response shape: keys={list(payload.keys())}")
+
+
 def parse_fixture_date(value: Any) -> date | None:
     if isinstance(value, date):
         return value
@@ -1000,6 +1057,9 @@ def parse_start_times(value: Any, tz: ZoneInfo = AUS_TZ) -> tuple[datetime | Non
 def infer_surface(condition_text: Any, course: Any = None) -> str | None:
     text = str(condition_text or "").lower()
     course_text = str(course or "").upper()
+    surface_override = get_surface_override(course)
+    if surface_override:
+        return surface_override
     if (
         "synthetic" in text
         or "polytrack" in text
@@ -1012,6 +1072,17 @@ def infer_surface(condition_text: Any, course: Any = None) -> str | None:
     if "turf" in text:
         return "TURF"
     return "TURF"
+
+
+def parse_meeting_track_surface(track: Any) -> str | None:
+    text = str(track or "").strip().lower()
+    if not text:
+        return None
+    if text in {"dirt", "sand", "synthetic", "polytrack"}:
+        return "DIRT"
+    if text == "turf":
+        return "TURF"
+    return None
 
 
 def build_going_text(track_condition: Any, track_rating: Any) -> str | None:
@@ -1608,7 +1679,8 @@ def transform_race_item(item: dict[str, Any], fixture_ctx: dict[str, Any]) -> di
         or item.get("meet", {}).get("venue")
     )
     distance = parse_distance_text(item.get("distance"))
-    surface = infer_surface(item.get("condition"), course)
+    explicit_surface = parse_meeting_track_surface((fixture_ctx.get("meta") or {}).get("meetingTrack"))
+    surface = explicit_surface or infer_surface(item.get("condition"), course)
     direction = get_direction(course, str(int(distance)), surface) if course and distance is not None else None
     rdc_class = (item.get("rdcClass") or "").strip()
     rdc_class_upper = rdc_class.upper()
@@ -1649,6 +1721,7 @@ def transform_race_item(item: dict[str, Any], fixture_ctx: dict[str, Any]) -> di
             "meetingId": fixture_ctx.get("meetingId"),
             "race_meet_id": fixture_ctx.get("race_meet_id"),
             "state": (fixture_ctx.get("meta") or {}).get("state") or item.get("meet", {}).get("state"),
+            "meetingTrack": (fixture_ctx.get("meta") or {}).get("meetingTrack"),
             "race": item,
         },
     }

@@ -14,6 +14,10 @@ course_abbr_mapping = {
 
 }
 
+course_surface_override_mapping = {
+    "DARWIN": "DIRT",
+}
+
 COURSE_PREFIXES_TO_REMOVE = [
     "BET365 ",
     "LADBROKES",
@@ -46,10 +50,10 @@ direction_mapping = {
     "gore": "Left",
     "omoto": "Left",
     "hastings": "Left",
-    "flemington-1200": "Straight-Right",
-    "flemington-1000": "Straight-Right",
-    "flemington": "Right",
-    "rosehill gardens": "Left",
+    "flemington-1200": "Straight-Left",
+    "flemington-1000": "Straight-Left",
+    "flemington": "Left",
+    "rosehill gardens": "Right",
     "ascot": "Left",
     "belmont": "Left",
     "canterbury": "Right",
@@ -57,7 +61,15 @@ direction_mapping = {
     "doomben": "Right",
     "eagle farm": "Right",
     "kensington": "Right",
-    
+    "darwin": "Left",
+    "launceston": "Left",
+    "muswellbrook": "Right",
+    "toowoomba": "Right",
+    "bendigo": "Left",
+    "cranbourne": "Left",
+    "wyong": "Left",
+    "morphettville": "Left",
+    "kyneton": "Left",
 }
 
 
@@ -78,6 +90,12 @@ def normalize_course(course: str | None) -> str | None:
         normalized = re.sub(rf"^\s*{re.escape(prefix)}[\s-]*", "", normalized, flags=re.IGNORECASE)
     normalized = re.sub(r"\s+", " ", normalized).strip(" -")
     return normalized
+
+
+def get_surface_override(course: str | None) -> str | None:
+    if not course:
+        return None
+    return course_surface_override_mapping.get(_normalize_course_key(course))
 
 
 # --- copied logic pattern from era-scraper ---

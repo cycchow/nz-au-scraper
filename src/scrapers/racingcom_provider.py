@@ -123,6 +123,17 @@ class RacingComProvider:
         }
 
         with requests.Session() as session:
+            meeting = racingcom.fetch_meeting(
+                session,
+                graphql_host=graphql_host,
+                api_key=api_key,
+                meet_code=meet_code,
+            )
+            fixture_ctx["meta"] = {
+                **(fixture_ctx.get("meta") or {}),
+                "meetingTrack": meeting.get("track"),
+                "state": (fixture_ctx.get("meta") or {}).get("state") or meeting.get("state"),
+            }
             race_items = racingcom.fetch_races_for_meet(
                 session,
                 graphql_host=graphql_host,

@@ -444,6 +444,45 @@ def test_transform_race_items_use_state_local_start_time():
     assert races[0]["meta"]["state"] == "NSW"
 
 
+def test_transform_race_items_prefers_explicit_meeting_track_surface():
+    races = racingcom.transform_race_items(
+        [
+            {
+                "id": "5449998",
+                "raceNumber": 6,
+                "distance": "1200m",
+                "totalPrizeMoney": "50000",
+                "trackCondition": "Good",
+                "trackRating": "4",
+                "rdcClass": "BM 64",
+                "condition": "Track type: Turf.",
+                "time": "2026-03-14T23:10:00Z",
+                "meet": {"venue": "Darwin", "state": "NT"},
+            }
+        ],
+        {
+            "raceDate": "2026-03-15",
+            "course": "Darwin",
+            "meetingId": 705199998,
+            "race_meet_id": 5199998,
+            "meta": {"state": "NT", "meetingTrack": "Dirt"},
+        },
+    )
+
+    assert races[0]["surface"] == "DIRT"
+    assert races[0]["meta"]["meetingTrack"] == "Dirt"
+
+
+def test_parse_meeting_track_surface_treats_sand_as_dirt():
+    assert racingcom.parse_meeting_track_surface("Sand") == "DIRT"
+    assert racingcom.parse_meeting_track_surface("sand") == "DIRT"
+    assert racingcom.parse_meeting_track_surface("Synthetic") == "DIRT"
+    assert racingcom.parse_meeting_track_surface("synthetic") == "DIRT"
+    assert racingcom.parse_meeting_track_surface("Polytrack") == "DIRT"
+    assert racingcom.parse_meeting_track_surface("polytrack") == "DIRT"
+    assert racingcom.parse_meeting_track_surface("Turf") == "TURF"
+
+
 def test_transform_race_items_sets_jumps_race_type_from_rdc_class():
     races = racingcom.transform_race_items(
         [
@@ -531,6 +570,7 @@ def test_infer_surface_uses_course_name_for_synthetic_tracks():
     assert racingcom.infer_surface("Track type: Turf.", "Pakenham Synthetic") == "DIRT"
     assert racingcom.infer_surface("Track type: Turf.", "Gold Coast Poly") == "DIRT"
     assert racingcom.infer_surface("Track type: Turf.", "Wolverhampton Tapeta") == "DIRT"
+    assert racingcom.infer_surface("Track type: Turf.", "Darwin") == "DIRT"
     assert racingcom.infer_surface("Track type: Turf.", "Rosehill Gardens") == "TURF"
 
 
@@ -928,6 +968,11 @@ def test_parse_fixture_uses_past_fixture_race_details(monkeypatch):
         called["sectionals"] = (fixture_ctx["race_meet_id"], race_item["raceNumber"], api_key)
         return []
 
+    monkeypatch.setattr(
+        racingcom,
+        "fetch_meeting",
+        lambda session, graphql_host, api_key, meet_code: {"track": "Turf", "state": "VIC", "id": str(meet_code)},
+    )
     monkeypatch.setattr(racingcom, "fetch_races_for_meet", fake_fetch_races_for_meet)
     monkeypatch.setattr(racingcom, "fetch_race_form", fake_fetch_race_form)
     monkeypatch.setattr(racingcom, "fetch_sectionals_for_race", fake_fetch_sectionals_for_race)
@@ -1009,3 +1054,54 @@ def test_parse_fixture_cards_fetches_for_today_or_future(monkeypatch):
     assert len(cards) == 1
     assert cards[0]["horseNo"] == 11
     assert cards[0]["rank"] is None
+
+
+def test_parse_fixture_races_fetches_meeting_track_for_surface(monkeypatch):
+    provider = RacingComProvider()
+    fixture = {
+        "fixtureId": 7005191184,
+        "raceDate": "2099-03-07",
+        "course": "Darwin",
+        "meetingId": 5191184,
+        "meta": {"race_meet_id": 5191184, "state": "NT"},
+    }
+
+    monkeypatch.setattr(
+        racingcom,
+        "discover_runtime_config",
+        lambda: {
+            "appSyncGraphQLHost": "https://graphql.api.racing.com",
+            "appSyncGraphQLAPIKey": "calendar-key",
+            "raceDetailsGraphQLHost": "https://graphql.rmdprod.racing.com/",
+            "raceDetailsGraphQLAPIKey": "race-api-key",
+        },
+    )
+
+    monkeypatch.setattr(
+        racingcom,
+        "fetch_meeting",
+        lambda session, graphql_host, api_key, meet_code: {"track": "Dirt", "state": "NT", "id": str(meet_code)},
+    )
+    monkeypatch.setattr(
+        racingcom,
+        "fetch_races_for_meet",
+        lambda session, graphql_host, api_key, meet_code: [
+            {
+                "id": "5435938",
+                "raceNumber": 10,
+                "distance": "1200m",
+                "totalPrizeMoney": "50000",
+                "trackCondition": "Good",
+                "trackRating": "4",
+                "rdcClass": "BM 64",
+                "condition": "Track type: Turf.",
+                "time": "2099-03-07T06:35:00.000Z",
+                "meet": {"venue": "Darwin", "state": "NT"},
+            }
+        ],
+    )
+
+    races = provider.parse_fixture_races(fixture)
+
+    assert races[0]["surface"] == "DIRT"
+    assert races[0]["meta"]["meetingTrack"] == "Dirt"
